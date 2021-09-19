@@ -205,8 +205,6 @@ void accept_connect(epoll_event *event, std::unordered_set<EventData *> &data_se
 				inet_ntop(client_addr.sin_family, &client_addr.sin_addr, addr_str, sizeof(addr_str));
 				std::cout << "new ipv4 connection: " << addr_str << "@" << ntohs(client_addr.sin_port) << std::endl;
 #endif
-				do_session(client_fd);
-				close(client_fd);
 			}
 		}
 		else
@@ -226,8 +224,6 @@ void accept_connect(epoll_event *event, std::unordered_set<EventData *> &data_se
 				inet_ntop(client_addr.sin6_family, &client_addr.sin6_addr, addr_str, sizeof(addr_str));
 				std::cout << "new ipv6 connection: " << addr_str << "@" << ntohs(client_addr.sin6_port) << std::endl;
 #endif
-				do_session(client_fd);
-				close(client_fd);
 			}
 		}
 		EventData *new_event_data = new EventData();
