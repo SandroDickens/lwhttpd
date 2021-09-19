@@ -144,8 +144,12 @@ int main()
 		int ret = epoll_wait(epoll_fd, trig_event, MAX_EVENTS, WAIT_TIME);
 		if (ret == -1)
 		{
-			std::cerr << __func__ << "@" << __LINE__ << ": epoll wait error! " << strerror(errno) << "(" << errno << ")"
-			          << std::endl;
+			if (errno != EINTR)
+			{
+				std::cerr << __func__ << "@" << __LINE__ << ": epoll wait error! " << strerror(errno) << "(" << errno
+				          << ")"
+				          << std::endl;
+			}
 		}
 		else if (ret > 0)
 		{
