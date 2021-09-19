@@ -5,10 +5,14 @@
 #include <cstring>
 #include <pthread.h>
 #include <csignal>
+#include <fcntl.h>
 #include <arpa/inet.h>
 #include <sys/stat.h>
+#include <sys/epoll.h>
 #include <unistd.h>
 #include <wait.h>
+#include <vector>
+#include <unordered_set>
 #include "misce.h"
 #include "response.h"
 
@@ -19,8 +23,6 @@ int init_ipv4(unsigned short port);
 
 int init_ipv6(unsigned short port);
 
-void *accept_thread(void *arg);
-
 long do_session(int fd);
 
 long get_content(int fd, std::string &webpath);
@@ -29,10 +31,27 @@ long exec_cgi(int fd, const std::string &webpath, const char *method, const std:
 
 static bool end_loop = false;
 
+struct EventData;
+
+typedef void (*callback_fun)(epoll_event *, std::unordered_set<EventData *> &);
+
+struct EventData
+{
+	int ep_fd;
+	int sock_fd;
+	int family;
+	callback_fun callback;
+};
+
+
+void accept_connect(epoll_event *event, std::unordered_set<EventData *> &data_set);
+
+void session_handler(epoll_event *event, std::unordered_set<EventData *> &data_set);
+
 void abort_loop(int sig)
 {
 	end_loop = true;
-	(void)signal(sig, SIG_DFL);
+	(void) signal(sig, SIG_DFL);
 }
 
 int main()
@@ -45,28 +64,143 @@ int main()
 		return -1;
 	}
 
-	pthread_t accept_v6_thread;
-	if (ipv6_fd != -1)
+	int epoll_fd = epoll_create(1);
+	if (epoll_fd == -1)
 	{
-		pthread_create(&accept_v6_thread, nullptr, accept_thread, reinterpret_cast<void *>(static_cast<long>(ipv6_fd)));
-		pthread_setname_np(accept_v6_thread, "ipv6_accept_thread");
+		close(ipv4_fd);
+		close(ipv6_fd);
+		handle_error(__func__, __LINE__, errno, -1, "epoll create failed!");
+		return -1;
 	}
+
+	EventData *ipv4_event_data = nullptr;
+	EventData *ipv6_event_data = nullptr;
 	if (ipv4_fd != -1)
 	{
-		sockaddr_in client_addr{};
-		socklen_t client_name_len = sizeof(client_addr);
-
-		while (!end_loop)
+		try
 		{
-			int client_fd = accept(ipv4_fd, reinterpret_cast<sockaddr *>(&client_addr), &client_name_len);
+			ipv4_event_data = new EventData();
+		}
+		catch (std::bad_alloc &e)
+		{
+			std::cerr << e.what() << std::endl;
+		}
+	}
+	if (ipv6_fd != -1)
+	{
+		try
+		{
+			ipv6_event_data = new EventData();
+		}
+		catch (std::bad_alloc &e)
+		{
+			std::cerr << e.what() << std::endl;
+		}
+	}
+	if ((ipv4_event_data == nullptr) && (ipv6_event_data == nullptr))
+	{
+		if (ipv4_fd != -1)
+		{
+			close(ipv4_fd);
+		}
+		if (ipv6_fd != -1)
+		{
+			close(ipv4_fd);
+		}
+		close(epoll_fd);
+		return -1;
+	}
+	if (ipv4_event_data != nullptr)
+	{
+		ipv4_event_data->ep_fd = epoll_fd;
+		ipv4_event_data->sock_fd = ipv4_fd;
+		ipv4_event_data->family = AF_INET;
+		ipv4_event_data->callback = accept_connect;
+
+		epoll_event ep_event{};
+		ep_event.events = EPOLLIN | EPOLLET;
+		ep_event.data.ptr = ipv4_event_data;
+		epoll_ctl(epoll_fd, EPOLL_CTL_ADD, ipv4_fd, &ep_event);
+	}
+	if (ipv6_event_data != nullptr)
+	{
+		ipv6_event_data->ep_fd = epoll_fd;
+		ipv6_event_data->sock_fd = ipv6_fd;
+		ipv6_event_data->family = AF_INET6;
+		ipv6_event_data->callback = accept_connect;
+
+		epoll_event ep_event{};
+		ep_event.events = EPOLLIN | EPOLLET;
+		ep_event.data.ptr = ipv6_event_data;
+		epoll_ctl(epoll_fd, EPOLL_CTL_ADD, ipv6_fd, &ep_event);
+	}
+	constexpr int MAX_EVENTS = 10;
+	constexpr int WAIT_TIME = 1000;
+	epoll_event trig_event[MAX_EVENTS];
+	std::unordered_set<EventData *> data_set;
+	while (!end_loop)
+	{
+		memset(trig_event, 0, sizeof(trig_event));
+		int ret = epoll_wait(epoll_fd, trig_event, MAX_EVENTS, WAIT_TIME);
+		if (ret == -1)
+		{
+			std::cerr << __func__ << "@" << __LINE__ << ": epoll wait error! " << strerror(errno) << "(" << errno << ")"
+			          << std::endl;
+		}
+		else if (ret > 0)
+		{
+			for (int i = 0; i < ret; ++i)
+			{
+				callback_fun callback = (static_cast<EventData *>(trig_event[i].data.ptr))->callback;
+				(*callback)(&trig_event[i], data_set);
+			}
+		}
+	}
+	while (!data_set.empty())
+	{
+		auto begin_it = data_set.begin();
+		EventData *event_data = *begin_it;
+		if (event_data != nullptr)
+		{
+			shutdown(event_data->sock_fd, SHUT_RDWR);
+			close(event_data->sock_fd);
+			delete event_data;
+		}
+		data_set.erase(begin_it);
+	}
+	close(epoll_fd);
+	if (ipv4_fd != -1)
+	{
+		close(ipv4_fd);
+	}
+	if (ipv6_fd != -1)
+	{
+		close(ipv6_fd);
+	}
+
+	return 0;
+}
+
+void accept_connect(epoll_event *event, std::unordered_set<EventData *> &data_set)
+{
+	EventData *event_data = static_cast<EventData *>(event->data.ptr);
+	if (event->events & EPOLLIN)
+	{
+		int fd = event_data->sock_fd;
+		int client_fd = -1;
+		if (event_data->family == AF_INET)
+		{
+			sockaddr_in client_addr{};
+			socklen_t client_name_len = sizeof(client_addr);
+			client_fd = accept(fd, reinterpret_cast<sockaddr *>(&client_addr), &client_name_len);
 			if (client_fd == -1)
 			{
-				handle_error(__func__, __LINE__, errno, client_fd, "ipv4 accept connect error!");
+				handle_error(__func__, __LINE__, errno, client_fd, "accept client connect error!");
 			}
 			else
 			{
 #ifdef _DEBUG
-				char addr_str[INET6_ADDRSTRLEN];
+				char addr_str[INET_ADDRSTRLEN];
 				addr_str[0] = 0;
 				inet_ntop(client_addr.sin_family, &client_addr.sin_addr, addr_str, sizeof(addr_str));
 				std::cout << "new ipv4 connection: " << addr_str << "@" << ntohs(client_addr.sin_port) << std::endl;
@@ -75,41 +209,73 @@ int main()
 				close(client_fd);
 			}
 		}
-	}
-	if (ipv6_fd != -1)
-	{
-		pthread_kill(accept_v6_thread, SIGINT);
-		pthread_join(accept_v6_thread, nullptr);
-	}
-	return 0;
-}
-
-void *accept_thread(void *arg)
-{
-	int fd = static_cast<int>(reinterpret_cast<long>(arg));
-	sockaddr_in6 client_addr6{};
-	socklen_t client_name_len = sizeof(client_addr6);
-
-	while (!end_loop)
-	{
-		int client_fd = accept(fd, reinterpret_cast<sockaddr *>(&client_addr6), &client_name_len);
-		if (client_fd == -1)
+		else
 		{
-			handle_error(__func__, __LINE__, errno, fd, "accept failed!");
+			sockaddr_in6 client_addr{};
+			socklen_t client_name_len = sizeof(client_addr);
+			client_fd = accept(fd, reinterpret_cast<sockaddr *>(&client_addr), &client_name_len);
+			if (client_fd == -1)
+			{
+				handle_error(__func__, __LINE__, errno, client_fd, "accept client connect error!");
+			}
+			else
+			{
+#ifdef _DEBUG
+				char addr_str[INET6_ADDRSTRLEN];
+				addr_str[0] = 0;
+				inet_ntop(client_addr.sin6_family, &client_addr.sin6_addr, addr_str, sizeof(addr_str));
+				std::cout << "new ipv6 connection: " << addr_str << "@" << ntohs(client_addr.sin6_port) << std::endl;
+#endif
+				do_session(client_fd);
+				close(client_fd);
+			}
+		}
+		EventData *new_event_data = new EventData();
+		new_event_data->ep_fd = event_data->ep_fd;
+		new_event_data->sock_fd = client_fd;
+		new_event_data->family = event_data->family;
+		new_event_data->callback = session_handler;
+		epoll_event ep_event;
+		ep_event.events = EPOLLIN | EPOLLRDHUP | EPOLLHUP | EPOLLET;
+		ep_event.data.ptr = new_event_data;
+		if (-1 == epoll_ctl(event_data->ep_fd, EPOLL_CTL_ADD, client_fd, &ep_event))
+		{
+			handle_error(__func__, __LINE__, errno, client_fd, "add new accepted socket fd to epoll failed!");
+			delete new_event_data;
 		}
 		else
 		{
-#ifdef _DEBUG
-			char addr_str[INET6_ADDRSTRLEN];
-			addr_str[0] = 0;
-			inet_ntop(client_addr6.sin6_family, &client_addr6.sin6_addr, addr_str, sizeof(addr_str));
-			std::cout << "new ipv6 connection: " << addr_str << "@" << ntohs(client_addr6.sin6_port) << std::endl;
-#endif
-			do_session(client_fd);
-			close(client_fd);
+			data_set.insert(new_event_data);
 		}
 	}
-	return nullptr;
+}
+
+void session_handler(epoll_event *event, std::unordered_set<EventData *> &data_set)
+{
+	EventData *event_data = static_cast<EventData *>(event->data.ptr);
+	int events = event->events;
+	if (events & (EPOLLHUP | EPOLLRDHUP))
+	{
+		if (-1 == epoll_ctl(event_data->ep_fd, EPOLL_CTL_DEL, event_data->sock_fd, nullptr))
+		{
+			handle_error(__func__, __LINE__, errno, -1, "delete socket fd from epoll failed!");
+		}
+		else
+		{
+			shutdown(event_data->sock_fd, SHUT_RDWR);
+			close(event_data->sock_fd);
+			data_set.erase(data_set.find(event_data));
+			delete event_data;
+		}
+	}
+	if (events & EPOLLERR)
+	{
+		handle_error(__func__, __LINE__, errno, -1, "epoll has an error!");
+	}
+	if (events & EPOLLIN)
+	{
+		do_session(event_data->sock_fd);
+	}
 }
 
 //int parseConfig(std::string string)
@@ -119,7 +285,7 @@ void *accept_thread(void *arg)
 
 int init_ipv4(unsigned short port)
 {
-	int fd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+	int fd = socket(AF_INET, SOCK_STREAM | SOCK_NONBLOCK, IPPROTO_TCP);
 	if (fd == -1)
 	{
 		handle_error(__func__, __LINE__, errno, fd, "create ipv4 socket failed!");
@@ -166,7 +332,7 @@ int init_ipv4(unsigned short port)
 
 int init_ipv6(unsigned short port)
 {
-	int fd = socket(AF_INET6, SOCK_STREAM, IPPROTO_TCP);
+	int fd = socket(AF_INET6, SOCK_STREAM | SOCK_NONBLOCK, IPPROTO_TCP);
 	if (fd == -1)
 	{
 		handle_error(__func__, __LINE__, errno, fd, "create ipv6 socket failed!");
@@ -188,6 +354,7 @@ int init_ipv6(unsigned short port)
 	{
 		handle_error(__func__, __LINE__, errno, fd, "ipv6 setsockopt error!");
 	}
+
 	if (-1 == bind(fd, reinterpret_cast<const sockaddr *>(&source_addr), sizeof(source_addr)))
 	{
 		handle_error(__func__, __LINE__, errno, fd, "ipv6 bind port failed!");
