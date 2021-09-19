@@ -118,7 +118,7 @@ int main()
 		ipv4_event_data->callback = accept_connect;
 
 		epoll_event ep_event{};
-		ep_event.events = EPOLLIN | EPOLLET;
+		ep_event.events = EPOLLIN;
 		ep_event.data.ptr = ipv4_event_data;
 		epoll_ctl(epoll_fd, EPOLL_CTL_ADD, ipv4_fd, &ep_event);
 	}
@@ -130,7 +130,7 @@ int main()
 		ipv6_event_data->callback = accept_connect;
 
 		epoll_event ep_event{};
-		ep_event.events = EPOLLIN | EPOLLET;
+		ep_event.events = EPOLLIN;
 		ep_event.data.ptr = ipv6_event_data;
 		epoll_ctl(epoll_fd, EPOLL_CTL_ADD, ipv6_fd, &ep_event);
 	}
@@ -281,7 +281,7 @@ void session_handler(epoll_event *event, std::unordered_set<EventData *> &data_s
 
 int init_ipv4(unsigned short port)
 {
-	int fd = socket(AF_INET, SOCK_STREAM | SOCK_NONBLOCK, IPPROTO_TCP);
+	int fd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
 	if (fd == -1)
 	{
 		handle_error(__func__, __LINE__, errno, fd, "create ipv4 socket failed!");
@@ -328,7 +328,7 @@ int init_ipv4(unsigned short port)
 
 int init_ipv6(unsigned short port)
 {
-	int fd = socket(AF_INET6, SOCK_STREAM | SOCK_NONBLOCK, IPPROTO_TCP);
+	int fd = socket(AF_INET6, SOCK_STREAM, IPPROTO_TCP);
 	if (fd == -1)
 	{
 		handle_error(__func__, __LINE__, errno, fd, "create ipv6 socket failed!");
