@@ -13,8 +13,8 @@
 #include <wait.h>
 #include <vector>
 #include <unordered_set>
-#include "misce.h"
-#include "response.h"
+#include "misce.hpp"
+#include "response.hpp"
 
 
 void handle_error(const char *func_name, int line, int error_code, int fd, const char *msg);
@@ -277,11 +277,6 @@ void session_handler(epoll_event *event, std::unordered_set<EventData *> &data_s
 		do_session(event_data->sock_fd);
 	}
 }
-
-//int parseConfig(std::string string)
-//{
-//	return 0;
-//}
 
 int init_ipv4(unsigned short port)
 {
