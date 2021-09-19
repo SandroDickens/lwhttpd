@@ -620,13 +620,16 @@ long get_content(int fd, std::string &webpath)
 	{
 		std::string headers = make_headers();
 		headers.append("Content-Type: text/html\r\n");
-		headers.append("Content-Length: 0\r\n\r\n");
-		send(fd, headers.c_str(), headers.length(), 0);
-		while (ifs.good())
+
+		unsigned int read_size = 0;
+		while ((ifs.good()) && (read_size < sizeof(buffer)))
 		{
 			ifs.read(buffer, sizeof(buffer));
-			send(fd, buffer, ifs.gcount(), 0);
+			read_size += ifs.gcount();
 		}
+		headers.append("Content-Length: " + std::to_string(read_size) + "\r\n\r\n");
+		send(fd, headers.c_str(), headers.length(), 0);
+		send(fd, buffer, ifs.gcount(), 0);
 		ifs.close();
 		return 0;
 	}
