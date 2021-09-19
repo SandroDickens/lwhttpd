@@ -414,7 +414,8 @@ long do_session(int fd)
 
 	if ((0 != strcasecmp(method, "GET")) && (0 != strcasecmp(method, "POST")))
 	{
-		return not_implemented(fd);
+		std::string path = "/";
+		return not_implemented(fd, path);
 	}
 
 	if (strcasecmp(method, "POST") == 0)
@@ -464,7 +465,7 @@ long do_session(int fd)
 		{
 			numchars = readline(fd, buffer, sizeof(buffer));
 		}
-		return not_found(fd);
+		return not_found(fd, webpath);
 	}
 	else
 	{
@@ -524,20 +525,20 @@ long exec_cgi(int fd, const std::string &webpath, const char *method, const std:
 		} while ((numchars > 0) && (0 != strcmp("\n", buffer)));
 		if (content_len == 0)
 		{
-			return bad_request(fd);
+			return bad_request(fd, webpath);
 		}
 	}
 
 	if ((pipe(pipe_p2cgi) == -1) || (pipe(pipe_cgi2p) == -1))
 	{
 		std::cerr << "create pipe failed!" << strerror(errno) << "(" << errno << ")" << std::endl;
-		return internal_server_error(fd);
+		return internal_server_error(fd, webpath);
 	}
 	pid_t pid = fork();
 	if (pid < 0)
 	{
 		std::cerr << "cannot fork process!" << strerror(errno) << "(" << errno << ")" << std::endl;
-		return internal_server_error(fd);
+		return internal_server_error(fd, webpath);
 	}
 	if (pid == 0)
 	{
@@ -632,6 +633,6 @@ long get_content(int fd, std::string &webpath)
 	}
 	else
 	{
-		return not_found(fd);
+		return not_found(fd, webpath);
 	}
 }

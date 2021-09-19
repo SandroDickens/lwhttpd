@@ -8,9 +8,18 @@
 
 #endif
 
-const char *HTTP_STATUS[HTTP_STATUS_MAX] = {[HTTP_STATUS_400] = "400 Bad request", [HTTP_STATUS_401] = "401 Access denied", [HTTP_STATUS_403] = "403 Forbidden", [HTTP_STATUS_404] = "404 Not found", [HTTP_STATUS_500] = "500 Internal server error", [HTTP_STATUS_501] = "501 not implemented", [HTTP_STATUS_502] = "502 Bad Gateway", [HTTP_STATUS_503] = "503 Service unavailable"};
+const char *HTTP_STATUS[HTTP_STATUS_MAX] = {
+		[HTTP_STATUS_400] = "400 Bad request",
+		[HTTP_STATUS_401] = "401 Access denied",
+		[HTTP_STATUS_403] = "403 Forbidden",
+		[HTTP_STATUS_404] = "404 Not found",
+		[HTTP_STATUS_500] = "500 Internal server error",
+		[HTTP_STATUS_501] = "501 not implemented",
+		[HTTP_STATUS_502] = "502 Bad Gateway",
+		[HTTP_STATUS_503] = "503 Service unavailable"
+};
 
-inline std::string assemble(HTTP_STATUS_CODE status_code)
+inline std::string assemble(HTTP_STATUS_CODE status_code, const std::string &path)
 {
 	std::string http_headers;
 	http_headers.append("HTTP/1.0 ");
@@ -24,7 +33,8 @@ inline std::string assemble(HTTP_STATUS_CODE status_code)
 	http_body.append(HTTP_STATUS[status_code]);
 	http_body.append("</title></head><body><center><h1>");
 	http_body.append(HTTP_STATUS[status_code]);
-	http_body.append("</h1></center><hr><center>tinyhttpd/0.1.0</center></body></html>\r\n");
+	http_body.append("</h1><h2>Path: " + path + "</h2>");
+	http_body.append("</center><hr><center>tinyhttpd/0.1.0</center></body></html>\r\n");
 	unsigned long content_length = http_body.length();
 	http_headers.append("Content-Length: " + std::to_string(content_length) + "\r\n\r\n");
 #ifdef _DEBUG
@@ -35,57 +45,57 @@ inline std::string assemble(HTTP_STATUS_CODE status_code)
 }
 
 /* 400 Bad request */
-long bad_request(int fd)
+long bad_request(int fd, const std::string &path)
 {
-	std::string response = assemble(HTTP_STATUS_400);
+	std::string response = assemble(HTTP_STATUS_400, path);
 	return send(fd, response.c_str(), response.length(), 0);
 }
 
 /* 401 Access denied */
-long access_denied(int fd)
+long access_denied(int fd, const std::string &path)
 {
-	std::string response = assemble(HTTP_STATUS_401);
+	std::string response = assemble(HTTP_STATUS_401, path);
 	return send(fd, response.c_str(), response.length(), 0);
 }
 
 /* 403 Forbidden */
-long forbidden(int fd)
+long forbidden(int fd, const std::string &path)
 {
-	std::string response = assemble(HTTP_STATUS_403);
+	std::string response = assemble(HTTP_STATUS_403, path);
 	return send(fd, response.c_str(), response.length(), 0);
 }
 
 /* 404 Not found */
-long not_found(int fd)
+long not_found(int fd, const std::string &path)
 {
-	std::string response = assemble(HTTP_STATUS_404);
+	std::string response = assemble(HTTP_STATUS_404, path);
 	return send(fd, response.c_str(), response.length(), 0);
 }
 
 /* 500 Internal server error */
-long internal_server_error(int fd)
+long internal_server_error(int fd, const std::string &path)
 {
-	std::string response = assemble(HTTP_STATUS_500);
+	std::string response = assemble(HTTP_STATUS_500, path);
 	return send(fd, response.c_str(), response.length(), 0);
 }
 
 /* 501 not implemented */
-long not_implemented(int fd)
+long not_implemented(int fd, const std::string &path)
 {
-	std::string response = assemble(HTTP_STATUS_501);
+	std::string response = assemble(HTTP_STATUS_501, path);
 	return send(fd, response.c_str(), response.length(), 0);
 }
 
 /* 502 Bad Gateway */
-long bad_gateway(int fd)
+long bad_gateway(int fd, const std::string &path)
 {
-	std::string response = assemble(HTTP_STATUS_502);
+	std::string response = assemble(HTTP_STATUS_502, path);
 	return send(fd, response.c_str(), response.length(), 0);
 }
 
 /* 503 Service unavailable */
-long service_unavailable(int fd)
+long service_unavailable(int fd, const std::string &path)
 {
-	std::string response = assemble(HTTP_STATUS_503);
+	std::string response = assemble(HTTP_STATUS_503, path);
 	return send(fd, response.c_str(), response.length(), 0);
 }
