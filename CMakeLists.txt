@@ -34,4 +34,6 @@ else ()
 endif ()
 
 add_executable(${PROJECT_NAME} main.cpp misce.cpp response.cpp)
+add_executable(demo.cgi cgi_demo.cpp)
+
 target_link_libraries(${PROJECT_NAME} pthread)

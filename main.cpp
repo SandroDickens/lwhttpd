@@ -491,7 +491,7 @@ std::string make_headers()
 {
 	std::string headers;
 	headers.append("HTTP/1.0 200 OK\r\n");
-	headers.append("Server: tinyhttpd/0.1.0\r\n");
+	headers.append("Server: tinyhttpd/0.0.1\r\n");
 	return headers;
 }
 
@@ -619,7 +619,8 @@ long get_content(int fd, std::string &webpath)
 	if (ifs.is_open())
 	{
 		std::string headers = make_headers();
-		headers.append("Content-Type: text/html\r\n\r\n");
+		headers.append("Content-Type: text/html\r\n");
+		headers.append("Content-Length: 0\r\n\r\n");
 		send(fd, headers.c_str(), headers.length(), 0);
 		while (ifs.good())
 		{

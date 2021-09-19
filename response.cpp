@@ -12,21 +12,26 @@ const char *HTTP_STATUS[HTTP_STATUS_MAX] = {[HTTP_STATUS_400] = "400 Bad request
 
 inline std::string assemble(HTTP_STATUS_CODE status_code)
 {
-	std::string response;
-	response.append("HTTP/1.0 ");
-	response.append(HTTP_STATUS[status_code]);
-	response.append("\r\n");
-	response.append("Content-type: text/html\r\n");
-	response.append("\r\n");
-	response.append("<html><head><title>");
-	response.append(HTTP_STATUS[status_code]);
-	response.append("</title></head><body><center><h1>");
-	response.append(HTTP_STATUS[status_code]);
-	response.append("</h1></center><hr><center>tinyhttpd/0.1.0</center></body></html>");
+	std::string http_headers;
+	http_headers.append("HTTP/1.0 ");
+	http_headers.append(HTTP_STATUS[status_code]);
+	http_headers.append("\r\n");
+	http_headers.append("Server: tinyhttpd/0.0.1\r\n");
+	http_headers.append("Content-Type: text/html; charset=utf8\r\n");
+
+	std::string http_body;
+	http_body.append("<html><head><title>");
+	http_body.append(HTTP_STATUS[status_code]);
+	http_body.append("</title></head><body><center><h1>");
+	http_body.append(HTTP_STATUS[status_code]);
+	http_body.append("</h1></center><hr><center>tinyhttpd/0.1.0</center></body></html>\r\n");
+	unsigned long content_length = http_body.length();
+	http_headers.append("Content-Length: " + std::to_string(content_length) + "\r\n\r\n");
 #ifdef _DEBUG
-	std::cout << "http header:\n" << response << std::endl;
+	std::cout << "HTTP Header:\n" << http_headers;
+	std::cout << "HTTP Body:\n" + http_body;
 #endif
-	return response;
+	return http_headers + http_body;
 }
 
 /* 400 Bad request */
