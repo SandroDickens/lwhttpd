@@ -37,7 +37,7 @@ int main()
 		}
 		else
 		{
-			http_body.append("Environment variable does not exist.");
+			http_body.append("N/A");
 		}
 		http_body.append("</td></tr>\r\n");
 	}
