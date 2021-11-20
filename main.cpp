@@ -15,13 +15,14 @@
 #include <unordered_set>
 #include "misce.hpp"
 #include "response.hpp"
+#include "config/HttpConfig.h"
 
 
 void handle_error(const char *func_name, int line, int error_code, int fd, const char *msg);
 
-int init_ipv4(unsigned short port);
+int init_ipv4();
 
-int init_ipv6(unsigned short port);
+int init_ipv6();
 
 long do_session(int fd);
 
@@ -51,16 +52,20 @@ void session_handler(epoll_event *event, std::unordered_set<EventData *> &data_s
 void abort_loop(int sig)
 {
 	end_loop = true;
-	(void) signal(sig, SIG_DFL);
+	(void)signal(sig, SIG_DFL);
 }
+
+HttpConfig httpConfig;
 
 int main()
 {
 	signal(SIGINT, abort_loop);
-	int ipv4_fd = init_ipv4(8086);
-	int ipv6_fd = init_ipv6(8086);
+	httpConfig.parsingConfigJSON("config.json");
+	int ipv4_fd = init_ipv4();
+	int ipv6_fd = init_ipv6();
 	if ((ipv4_fd == -1) && (ipv6_fd == -1))
 	{
+		std::cerr << "socket initialization failed." << std::endl;
 		return -1;
 	}
 
@@ -84,6 +89,7 @@ int main()
 		catch (std::bad_alloc &e)
 		{
 			std::cerr << e.what() << std::endl;
+			close(ipv4_fd);
 		}
 	}
 	if (ipv6_fd != -1)
@@ -95,18 +101,11 @@ int main()
 		catch (std::bad_alloc &e)
 		{
 			std::cerr << e.what() << std::endl;
+			close(ipv6_fd);
 		}
 	}
 	if ((ipv4_event_data == nullptr) && (ipv6_event_data == nullptr))
 	{
-		if (ipv4_fd != -1)
-		{
-			close(ipv4_fd);
-		}
-		if (ipv6_fd != -1)
-		{
-			close(ipv4_fd);
-		}
 		close(epoll_fd);
 		return -1;
 	}
@@ -147,8 +146,7 @@ int main()
 			if (errno != EINTR)
 			{
 				std::cerr << __func__ << "@" << __LINE__ << ": epoll wait error! " << strerror(errno) << "(" << errno
-				          << ")"
-				          << std::endl;
+				          << ")" << std::endl;
 			}
 		}
 		else if (ret > 0)
@@ -191,7 +189,7 @@ void accept_connect(epoll_event *event, std::unordered_set<EventData *> &data_se
 	if (event->events & EPOLLIN)
 	{
 		int fd = event_data->sock_fd;
-		int client_fd = -1;
+		int client_fd;
 		if (event_data->family == AF_INET)
 		{
 			sockaddr_in client_addr{};
@@ -235,7 +233,7 @@ void accept_connect(epoll_event *event, std::unordered_set<EventData *> &data_se
 		new_event_data->sock_fd = client_fd;
 		new_event_data->family = event_data->family;
 		new_event_data->callback = session_handler;
-		epoll_event ep_event;
+		epoll_event ep_event{};
 		ep_event.events = EPOLLIN | EPOLLRDHUP | EPOLLHUP | EPOLLET;
 		ep_event.data.ptr = new_event_data;
 		if (-1 == epoll_ctl(event_data->ep_fd, EPOLL_CTL_ADD, client_fd, &ep_event))
@@ -253,7 +251,7 @@ void accept_connect(epoll_event *event, std::unordered_set<EventData *> &data_se
 void session_handler(epoll_event *event, std::unordered_set<EventData *> &data_set)
 {
 	EventData *event_data = static_cast<EventData *>(event->data.ptr);
-	int events = event->events;
+	uint32_t events = event->events;
 	if (events & (EPOLLHUP | EPOLLRDHUP))
 	{
 		if (-1 == epoll_ctl(event_data->ep_fd, EPOLL_CTL_DEL, event_data->sock_fd, nullptr))
@@ -268,18 +266,28 @@ void session_handler(epoll_event *event, std::unordered_set<EventData *> &data_s
 			delete event_data;
 		}
 	}
-	if (events & EPOLLERR)
+	else if (events & EPOLLERR)
 	{
 		handle_error(__func__, __LINE__, errno, -1, "epoll has an error!");
 	}
-	if (events & EPOLLIN)
+	else if (events & EPOLLIN)
 	{
 		do_session(event_data->sock_fd);
 	}
+	else
+	{
+		std::cerr << "Unrecognized epoll event " << events << std::endl;
+	}
 }
 
-int init_ipv4(unsigned short port)
+int init_ipv4()
 {
+	ListenAddr listenAddr = httpConfig.getListenAddr();
+	if ((listenAddr.config_af & LISTEN_FAMILY_4) == 0)
+	{
+		std::cout << "IPv4 listening is not configured!" << std::endl;
+		return -1;
+	}
 	int fd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
 	if (fd == -1)
 	{
@@ -287,10 +295,7 @@ int init_ipv4(unsigned short port)
 		return -1;
 	}
 
-	sockaddr_in source_addr{};
-	source_addr.sin_family = AF_INET;
-	source_addr.sin_port = htons(port);
-	source_addr.sin_addr.s_addr = htonl(INADDR_ANY);
+	sockaddr_in source_addr = listenAddr.ipv4_addr;
 
 	int reuse_addr_opt = 1;
 	if (-1 == setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &reuse_addr_opt, sizeof(int)))
@@ -303,30 +308,29 @@ int init_ipv4(unsigned short port)
 		return -1;
 	}
 
-	if (port == 0)
+	socklen_t name_len = sizeof(source_addr);
+	if (-1 == getsockname(fd, reinterpret_cast<sockaddr *>(&source_addr), &name_len))
 	{
-		socklen_t name_len = sizeof(source_addr);
-		if (-1 == getsockname(fd, reinterpret_cast<sockaddr *>(&source_addr), &name_len))
-		{
-			handle_error(__func__, __LINE__, errno, fd, "ipv4 getsockname failed!");
-			return -1;
-		}
-		else
-		{
-			std::cout << "ipv4 bind port " << htons(source_addr.sin_port) << std::endl;
-		}
-	}
-	if (-1 == listen(fd, 5))
-	{
-		handle_error(__func__, __LINE__, errno, fd, "ipv4 listen error!");
+		handle_error(__func__, __LINE__, errno, fd, "ipv4 getsockname failed!");
 		return -1;
+	}
+	else
+	{
+		std::cout << "ipv4 bind port " << htons(source_addr.sin_port) << std::endl;
 	}
 
 	return fd;
 }
 
-int init_ipv6(unsigned short port)
+int init_ipv6()
 {
+	ListenAddr listenAddr = httpConfig.getListenAddr();
+	if ((listenAddr.config_af & LISTEN_FAMILY_6) == 0)
+	{
+		std::cout << "IPv6 listening is not configured!" << std::endl;
+		return -1;
+	}
+
 	int fd = socket(AF_INET6, SOCK_STREAM, IPPROTO_TCP);
 	if (fd == -1)
 	{
@@ -334,15 +338,12 @@ int init_ipv6(unsigned short port)
 		return -1;
 	}
 
-	sockaddr_in6 source_addr{};
-	source_addr.sin6_family = AF_INET6;
-	source_addr.sin6_port = htons(port);
-	source_addr.sin6_addr = IN6ADDR_ANY_INIT;
+	sockaddr_in6 source_addr = listenAddr.ipv6_addr;
 
 	int reuse_addr_opt = 1;
 	if (-1 == setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &reuse_addr_opt, sizeof(reuse_addr_opt)))
 	{
-		handle_error(__func__, __LINE__, errno, fd, "ipv6 set addr reuse error!");
+		handle_error(__func__, __LINE__, errno, fd, "ipv6 set listenAddr reuse error!");
 	}
 	int ipv6_only_opt = 1;
 	if (-1 == setsockopt(fd, IPPROTO_IPV6, IPV6_V6ONLY, &ipv6_only_opt, sizeof(ipv6_only_opt)))
@@ -356,23 +357,15 @@ int init_ipv6(unsigned short port)
 		return -1;
 	}
 
-	if (port == 0)
+	socklen_t name_len = sizeof(source_addr);
+	if (-1 == getsockname(fd, reinterpret_cast<sockaddr *>(&source_addr), &name_len))
 	{
-		socklen_t name_len = sizeof(source_addr);
-		if (-1 == getsockname(fd, reinterpret_cast<sockaddr *>(&source_addr), &name_len))
-		{
-			handle_error(__func__, __LINE__, errno, fd, "ipv6 getsockname failed!");
-			return -1;
-		}
-		else
-		{
-			std::cout << "ipv6 bind port " << htons(source_addr.sin6_port) << std::endl;
-		}
-	}
-	if (-1 == listen(fd, 5))
-	{
-		handle_error(__func__, __LINE__, errno, fd, "ipv6 listen error!");
+		handle_error(__func__, __LINE__, errno, fd, "ipv6 getsockname failed!");
 		return -1;
+	}
+	else
+	{
+		std::cout << "ipv6 bind port " << htons(source_addr.sin6_port) << std::endl;
 	}
 
 	return fd;
@@ -448,7 +441,7 @@ long do_session(int fd)
 		}
 	}
 
-	std::string webpath = "./htdocs";
+	std::string webpath = httpConfig.getWebRoot();
 	webpath.append(url);
 	if (webpath[webpath.length() - 1] == '/')
 	{
@@ -574,7 +567,7 @@ long exec_cgi(int fd, const std::string &webpath, const char *method, const std:
 		{
 			do
 			{
-				int var = recv(fd, &buffer, sizeof(buffer), 0);
+				long var = recv(fd, &buffer, sizeof(buffer), 0);
 				if (var != -1)
 				{
 					read_size += var;
@@ -587,7 +580,7 @@ long exec_cgi(int fd, const std::string &webpath, const char *method, const std:
 			write(pipe_p2cgi[1], buffer, read_size);
 		}
 		read_size = 0;
-		int var;
+		long var;
 		do
 		{
 			var = read(pipe_cgi2p[0], buffer, sizeof(buffer));

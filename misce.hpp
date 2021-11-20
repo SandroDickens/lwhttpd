@@ -16,9 +16,9 @@
  *
  * See the vsnprintf() documentation for format string extensions over C99.
  */
-int vscnprintf(char *buf, size_t size, const char *fmt, va_list args);
+long vscnprintf(char *buf, ssize_t size, const char *fmt, va_list args);
 
-int scnprintf(char *buf, size_t size, const char *fmt, ...);
+long scnprintf(char *buf, ssize_t size, const char *fmt, ...);
 
 unsigned long readline(int fd, char *buf, unsigned long size);
 
