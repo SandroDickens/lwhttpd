@@ -108,18 +108,6 @@ int HttpConfig::parsingConfigJSON(const std::string &json_file_name)
 		this->webRoot = "/var/www-data";
 	}
 
-	key_name = "cgiPath";
-	if ((json_doc.HasMember(key_name.c_str())) && (json_doc[key_name.c_str()].IsString()))
-	{
-		this->cgiPath = json_doc[key_name.c_str()].GetString();
-	}
-
-	key_name = "fcgiPath";
-	if ((json_doc.HasMember(key_name.c_str())) && (json_doc[key_name.c_str()].IsString()))
-	{
-		this->fcgiPath = json_doc[key_name.c_str()].GetString();
-	}
-
 	key_name = "tlsConfig";
 	if ((json_doc.HasMember(key_name.c_str())) && (json_doc[key_name.c_str()].IsObject()))
 	{
