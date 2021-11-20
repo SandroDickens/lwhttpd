@@ -8,7 +8,7 @@
 #include <utility>
 
 constexpr int LISTEN_FAMILY_4 = 0x01;
-constexpr int LISTEN_FAMILY_6 = 0x01;
+constexpr int LISTEN_FAMILY_6 = 0x10;
 
 struct ListenAddr
 {
