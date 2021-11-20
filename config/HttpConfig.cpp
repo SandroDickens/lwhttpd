@@ -75,6 +75,7 @@ int HttpConfig::parsingConfigJSON(const std::string &json_file_name)
 			if (family == AF_INET)
 			{
 				listenAddr.config_af |= LISTEN_FAMILY_4;
+				listenAddr.ipv4_addr.sin_family = AF_INET;
 				listenAddr.ipv4_addr.sin_port = htons(port);
 				if (1 != inet_pton(family, addr_str.c_str(), &listenAddr.ipv4_addr.sin_addr))
 				{
@@ -86,6 +87,7 @@ int HttpConfig::parsingConfigJSON(const std::string &json_file_name)
 				if (1 == inet_pton(family, addr_str.c_str(), &listenAddr.ipv6_addr.sin6_addr))
 				{
 					listenAddr.config_af |= LISTEN_FAMILY_6;
+					listenAddr.ipv6_addr.sin6_family + AF_INET6;
 					listenAddr.ipv6_addr.sin6_port = htons(port);
 				}
 			}
@@ -94,6 +96,7 @@ int HttpConfig::parsingConfigJSON(const std::string &json_file_name)
 	else
 	{
 		listenAddr.config_af |= LISTEN_FAMILY_4;
+		listenAddr.ipv4_addr.sin_family = AF_INET;
 		inet_pton(AF_INET, "0.0.0.0", &listenAddr.ipv4_addr.sin_addr);
 		listenAddr.ipv4_addr.sin_port = htons(80);
 	}
