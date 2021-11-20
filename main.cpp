@@ -246,6 +246,10 @@ void accept_connect(epoll_event *event, std::unordered_set<EventData *> &data_se
 			data_set.insert(new_event_data);
 		}
 	}
+	else
+	{
+		std::cerr << "Unrecognized epoll event 0x" << std::hex << event->events << std::endl;
+	}
 }
 
 void session_handler(epoll_event *event, std::unordered_set<EventData *> &data_set)
@@ -276,7 +280,7 @@ void session_handler(epoll_event *event, std::unordered_set<EventData *> &data_s
 	}
 	else
 	{
-		std::cerr << "Unrecognized epoll event " << events << std::endl;
+		std::cerr << "Unrecognized epoll event 0x" << std::hex << events << std::endl;
 	}
 }
 

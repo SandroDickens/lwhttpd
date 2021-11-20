@@ -87,7 +87,7 @@ int HttpConfig::parsingConfigJSON(const std::string &json_file_name)
 				if (1 == inet_pton(family, addr_str.c_str(), &listenAddr.ipv6_addr.sin6_addr))
 				{
 					listenAddr.config_af |= LISTEN_FAMILY_6;
-					listenAddr.ipv6_addr.sin6_family + AF_INET6;
+					listenAddr.ipv6_addr.sin6_family = AF_INET6;
 					listenAddr.ipv6_addr.sin6_port = htons(port);
 				}
 			}
