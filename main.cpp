@@ -16,6 +16,7 @@
 #include "misce.hpp"
 #include "response.hpp"
 #include "config/HttpConfig.h"
+#include "mimetype/MIMETypes.h"
 
 
 void handle_error(const char *func_name, int line, int error_code, int fd, const char *msg);
@@ -90,7 +91,6 @@ int main()
 		{
 			std::cerr << e.what() << std::endl;
 			close(ipv4_fd);
-			ipv4_fd = -1;
 		}
 	}
 	if (ipv6_fd != -1)
@@ -103,7 +103,6 @@ int main()
 		{
 			std::cerr << e.what() << std::endl;
 			close(ipv6_fd);
-			ipv6_fd = -1;
 		}
 	}
 	if ((ipv4_event_data == nullptr) && (ipv6_event_data == nullptr))
@@ -504,7 +503,7 @@ long do_session(int fd)
 		{
 			webpath.append("/index.html");
 		}
-		if (webroot_stat.st_mode & (S_IXGRP | S_IXUSR | S_IXOTH))
+		if ((MIMETypes::isELF(webpath)) && (webroot_stat.st_mode & (S_IXGRP | S_IXUSR | S_IXOTH)))
 		{
 			is_cgi = true;
 		}
@@ -645,23 +644,31 @@ long exec_cgi(int fd, const std::string &webpath, const char *method, const std:
 
 long get_content(int fd, std::string &webpath)
 {
-	char buffer[8192];
 	std::ifstream ifs;
 	ifs.open(webpath, std::ios::in | std::ios::binary);
 	if (ifs.is_open())
 	{
 		std::string headers = make_headers();
-		headers.append("Content-Type: text/html\r\n");
+		MIMETypes &mimeTypes = MIMETypes::getInstance();
+		std::string contentType = mimeTypes.getMIMEType(webpath);
+		headers.append("Content-Type: " + contentType + "\r\n");
 
-		unsigned int read_size = 0;
+		size_t begin_pos = ifs.tellg();
+		ifs.seekg(0, std::ios::end);
+		size_t end_pos = ifs.tellg();
+		unsigned long file_size = end_pos - begin_pos;
+		char *buffer = new char[file_size];
+		ifs.seekg(0, std::ios::beg);
+
+		unsigned long read_size = 0;
 		while ((ifs.good()) && (read_size < sizeof(buffer)))
 		{
-			ifs.read(buffer, sizeof(buffer));
+			ifs.read(buffer + read_size, file_size - read_size);
 			read_size += ifs.gcount();
 		}
 		headers.append("Content-Length: " + std::to_string(read_size) + "\r\n\r\n");
 		send(fd, headers.c_str(), headers.length(), 0);
-		send(fd, buffer, ifs.gcount(), 0);
+		send(fd, buffer, read_size, 0);
 		ifs.close();
 		return 0;
 	}
