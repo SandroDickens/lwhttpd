@@ -84,7 +84,8 @@ Scanning dependencies of target tinyhttpd
 ```
 ### 配置
 现已支持通过JSON配置，这样就不用每次修改配置都要重新编译代码了  
-(注意: TLS还未支持)
+(注意: TLS还未支持)  
+[注: JSON使用的是[rapidjson.org](https://rapidjson.org/)]
 ```json
 {
   "serverName": "localhost",
