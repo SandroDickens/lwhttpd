@@ -90,6 +90,7 @@ int main()
 		{
 			std::cerr << e.what() << std::endl;
 			close(ipv4_fd);
+			ipv4_fd = -1;
 		}
 	}
 	if (ipv6_fd != -1)
@@ -102,6 +103,7 @@ int main()
 		{
 			std::cerr << e.what() << std::endl;
 			close(ipv6_fd);
+			ipv6_fd = -1;
 		}
 	}
 	if ((ipv4_event_data == nullptr) && (ipv6_event_data == nullptr))
@@ -248,6 +250,19 @@ void accept_connect(epoll_event *event, std::unordered_set<EventData *> &data_se
 	}
 	else
 	{
+		int error = 0;
+		socklen_t errlen = sizeof(error);
+		if (getsockopt(event_data->sock_fd, SOL_SOCKET, SO_ERROR, &error, &errlen) == 0)
+		{
+			printf("error = %s\n", strerror(error));
+		}
+		sockaddr_in client_addr{};
+		socklen_t client_name_len = sizeof(client_addr);
+		int client_fd = accept(event_data->sock_fd, reinterpret_cast<sockaddr *>(&client_addr), &client_name_len);
+		if (client_fd == -1)
+		{
+			handle_error(__func__, __LINE__, errno, client_fd, "accept client connect error!");
+		}
 		std::cerr << "Unrecognized epoll event 0x" << std::hex << event->events << std::endl;
 	}
 }
@@ -280,6 +295,12 @@ void session_handler(epoll_event *event, std::unordered_set<EventData *> &data_s
 	}
 	else
 	{
+		int error = 0;
+		socklen_t errlen = sizeof(error);
+		if (getsockopt(event_data->sock_fd, SOL_SOCKET, SO_ERROR, &error, &errlen) == 0)
+		{
+			printf("error = %s\n", strerror(error));
+		}
 		std::cerr << "Unrecognized epoll event 0x" << std::hex << events << std::endl;
 	}
 }
@@ -312,15 +333,22 @@ int init_ipv4()
 		return -1;
 	}
 
-	socklen_t name_len = sizeof(source_addr);
-	if (-1 == getsockname(fd, reinterpret_cast<sockaddr *>(&source_addr), &name_len))
+	sockaddr_in tmp_addr{};
+	socklen_t name_len = sizeof(tmp_addr);
+	if (-1 == getsockname(fd, reinterpret_cast<sockaddr *>(&tmp_addr), &name_len))
 	{
 		handle_error(__func__, __LINE__, errno, fd, "ipv4 getsockname failed!");
 		return -1;
 	}
 	else
 	{
-		std::cout << "ipv4 bind port " << htons(source_addr.sin_port) << std::endl;
+		std::cout << "ipv4 bind port " << ntohs(tmp_addr.sin_port) << std::endl;
+	}
+
+	if (-1 == listen(fd, 5))
+	{
+		handle_error(__func__, __LINE__, errno, fd, "ipv4 listen error!");
+		return -1;
 	}
 
 	return fd;
@@ -361,15 +389,22 @@ int init_ipv6()
 		return -1;
 	}
 
-	socklen_t name_len = sizeof(source_addr);
-	if (-1 == getsockname(fd, reinterpret_cast<sockaddr *>(&source_addr), &name_len))
+	sockaddr_in6 tmp_addr{};
+	socklen_t name_len = sizeof(tmp_addr);
+	if (-1 == getsockname(fd, reinterpret_cast<sockaddr *>(&tmp_addr), &name_len))
 	{
 		handle_error(__func__, __LINE__, errno, fd, "ipv6 getsockname failed!");
 		return -1;
 	}
 	else
 	{
-		std::cout << "ipv6 bind port " << htons(source_addr.sin6_port) << std::endl;
+		std::cout << "ipv6 bind port " << ntohs(tmp_addr.sin6_port) << std::endl;
+	}
+
+	if (-1 == listen(fd, 5))
+	{
+		handle_error(__func__, __LINE__, errno, fd, "ipv6 listen error!");
+		return -1;
 	}
 
 	return fd;

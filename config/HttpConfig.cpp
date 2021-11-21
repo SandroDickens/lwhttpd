@@ -77,14 +77,28 @@ int HttpConfig::parsingConfigJSON(const std::string &json_file_name)
 				listenAddr.config_af |= LISTEN_FAMILY_4;
 				listenAddr.ipv4_addr.sin_family = AF_INET;
 				listenAddr.ipv4_addr.sin_port = htons(port);
-				if (1 != inet_pton(family, addr_str.c_str(), &listenAddr.ipv4_addr.sin_addr))
+				int ret = inet_pton(family, addr_str.c_str(), &listenAddr.ipv4_addr.sin_addr);
+				if (ret == 0)
 				{
-					listenAddr.ipv4_addr.sin_addr.s_addr = htonl(INADDR_ANY);
+					std::cerr << "Invalid address " << addr_str << std::endl;
+				}
+				else if (ret == -1)
+				{
+					std::cerr << "Address " << addr_str << " converts failed!" << strerror(errno) << std::endl;
 				}
 			}
 			else
 			{
-				if (1 == inet_pton(family, addr_str.c_str(), &listenAddr.ipv6_addr.sin6_addr))
+				int ret = inet_pton(family, addr_str.c_str(), &listenAddr.ipv6_addr.sin6_addr);
+				if (ret == 0)
+				{
+					std::cerr << "Invalid address " << addr_str << std::endl;
+				}
+				else if (ret == -1)
+				{
+					std::cerr << "Address " << addr_str << " converts failed!" << strerror(errno) << std::endl;
+				}
+				else
 				{
 					listenAddr.config_af |= LISTEN_FAMILY_6;
 					listenAddr.ipv6_addr.sin6_family = AF_INET6;
