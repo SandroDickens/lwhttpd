@@ -82,6 +82,29 @@ Scanning dependencies of target tinyhttpd
 [100%] Linking CXX executable tinyhttpd
 [100%] Built target tinyhttpd
 ```
+### 配置
+现已支持通过JSON配置，这样就不用每次修改配置都要重新编译代码了  
+(注意: TLS还未支持)
+```json
+{
+  "serverName": "localhost",
+  "listen": [
+	{
+	  "address": "0.0.0.0",
+	  "port": 80
+	},
+	{
+	  "address": "::",
+	  "port": 80
+	}
+  ],
+  "webRoot": "/var/htdocs",
+  "tlsConfig": {
+	"tlsCertFile": "/cert/tls.cert",
+	"tlsKeyFile": "/cert/tls.key"
+  }
+}
+```
 ### 运行
 ```shell script
 # Make the 'htdocs' directory, and copy demo.cgi to the directory
