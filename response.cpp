@@ -25,7 +25,7 @@ inline std::string assemble(HTTP_STATUS_CODE status_code, const std::string &pat
 	http_headers.append("HTTP/1.0 ");
 	http_headers.append(HTTP_STATUS[status_code]);
 	http_headers.append("\r\n");
-	http_headers.append("Server: tinyhttpd/0.0.1\r\n");
+	http_headers.append("Server: minorhttpd/0.0.1\r\n");
 	http_headers.append("Content-Type: text/html; charset=utf8\r\n");
 
 	std::string http_body;
@@ -34,7 +34,7 @@ inline std::string assemble(HTTP_STATUS_CODE status_code, const std::string &pat
 	http_body.append("</title></head><body><center><h1>");
 	http_body.append(HTTP_STATUS[status_code]);
 	http_body.append("</h1><h2>Path: " + path + "</h2>");
-	http_body.append("</center><hr><center>tinyhttpd/0.1.0</center></body></html>\r\n");
+	http_body.append("</center><hr><center>minorhttpd/0.1.0</center></body></html>\r\n");
 	unsigned long content_length = http_body.length();
 	http_headers.append("Content-Length: " + std::to_string(content_length) + "\r\n\r\n");
 #ifdef _DEBUG

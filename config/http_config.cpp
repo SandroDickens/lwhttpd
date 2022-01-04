@@ -83,8 +83,38 @@ void HttpConfig::print_http_config(const HttpConfig &config)
 	std::cout << "tls key file" << config.tls_config.get_key_file() << std::endl;
 }
 
-void HttpConfig::parser_json_value(const boost::json::value &json_value)
+void HttpConfig::parser_json_value(const std::string &json_file)
 {
+	std::ifstream ifs;
+	ifs.open(json_file, std::ios::in);
+	if (!ifs.is_open())
+	{
+		throw std::invalid_argument("JSON file opening failed");
+	}
+	std::string json_str;
+	while (ifs.good())
+	{
+		char buffer[4096];
+		ifs.read(buffer, sizeof(buffer) - 1);
+		size_t read_size = ifs.gcount();
+		if (read_size > 0)
+		{
+			buffer[read_size] = '\0';
+			json_str += std::string(buffer);
+		}
+	}
+	ifs.close();
+
+	boost::json::error_code error_code;
+	boost::json::parse_options parse_options{};
+	parse_options.allow_comments = true;
+	boost::json::storage_ptr sp{};
+	boost::json::value json_value = boost::json::parse(json_str, error_code, sp, parse_options);
+	if (error_code)
+	{
+		throw std::invalid_argument("Invalid JSON content!");
+	}
+
 	boost::json::object config_obj = boost::json::value_to<boost::json::object>(json_value);
 	server_name = boost::json::value_to<std::string>(config_obj.at("server_name"));
 	std::vector<boost::json::object> listen_vec = boost::json::value_to<std::vector<boost::json::object>>(

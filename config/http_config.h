@@ -74,7 +74,7 @@ public:
 
 	void set_tls_cfg(TLSConfig cfg);
 
-	void parser_json_value(const boost::json::value &json_value);
+	void parser_json_value(const std::string& json_file);
 
 	static void print_http_config(const HttpConfig &config);
 

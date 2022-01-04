@@ -60,7 +60,15 @@ HttpConfig httpConfig;
 int main()
 {
 	signal(SIGINT, abort_loop);
-	httpConfig.parser_json_value("config.json");
+	try
+	{
+		httpConfig.parser_json_value("config.json");
+	}
+	catch (std::exception &exc)
+	{
+		std::cout << exc.what() << std::endl;
+		return -1;
+	}
 	int ipv4_fd = -1, ipv6_fd = -1;
 	auto var = httpConfig.get_listen_cfg();
 	for (auto cfg: var)
@@ -525,7 +533,7 @@ std::string make_headers()
 {
 	std::string headers;
 	headers.append("HTTP/1.0 200 OK\r\n");
-	headers.append("Server: tinyhttpd/0.0.1\r\n");
+	headers.append("Server: minorhttpd/0.0.1\r\n");
 	return headers;
 }
 
