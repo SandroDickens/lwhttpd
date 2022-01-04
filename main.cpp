@@ -62,7 +62,7 @@ int main()
 	signal(SIGINT, abort_loop);
 	try
 	{
-		httpConfig.parser_json_value("config.json");
+		httpConfig.parser_json_value("../config.json");
 	}
 	catch (std::exception &exc)
 	{

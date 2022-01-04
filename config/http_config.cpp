@@ -100,10 +100,11 @@ void HttpConfig::parser_json_value(const std::string &json_file)
 		if (read_size > 0)
 		{
 			buffer[read_size] = '\0';
-			json_str += std::string(buffer);
+			json_str.append(buffer);
 		}
 	}
 	ifs.close();
+	std::cout << json_str << std::endl;
 
 	boost::json::error_code error_code;
 	boost::json::parse_options parse_options{};
@@ -112,26 +113,51 @@ void HttpConfig::parser_json_value(const std::string &json_file)
 	boost::json::value json_value = boost::json::parse(json_str, error_code, sp, parse_options);
 	if (error_code)
 	{
-		throw std::invalid_argument("Invalid JSON content!");
+		throw std::invalid_argument("Invalid JSON content!" + error_code.message());
 	}
 
 	boost::json::object config_obj = boost::json::value_to<boost::json::object>(json_value);
-	server_name = boost::json::value_to<std::string>(config_obj.at("server_name"));
-	std::vector<boost::json::object> listen_vec = boost::json::value_to<std::vector<boost::json::object>>(
-			config_obj.at("listen"));
-	std::cout << "listen: [";
-	for (boost::json::object tmp_obj: listen_vec)
+	auto it = config_obj.find("server_name");
+	if (it != config_obj.end())
 	{
-		ListenConfig listen_config;
-		listen_config.set_address(boost::json::value_to<std::string>(tmp_obj.at("address")));
-		listen_config.set_port(boost::json::value_to<int>(tmp_obj.at("port")));
-		listen.push_back(listen_config);
+		server_name = boost::json::value_to<std::string>(it->value());
 	}
-	std::cout << "]" << std::endl;
-	web_root = boost::json::value_to<std::string>(config_obj.at("web_root"));
-	boost::json::object tls_config_obj = boost::json::value_to<boost::json::object>(config_obj.at("tls_config"));
-	tls_config.set_cert_file(boost::json::value_to<std::string>(tls_config_obj.at("tls_cert_file")));
-	tls_config.set_key_file(boost::json::value_to<std::string>(tls_config_obj.at("tls_key_file")));
+
+	it = config_obj.find("listen");
+	if (it != config_obj.end())
+	{
+		std::vector<boost::json::object> listen_vec = boost::json::value_to<std::vector<boost::json::object>>(
+				it->value());
+		std::cout << "listen: [";
+		for (boost::json::object tmp_obj: listen_vec)
+		{
+			ListenConfig listen_config;
+			listen_config.set_address(boost::json::value_to<std::string>(tmp_obj.at("address")));
+			listen_config.set_port(boost::json::value_to<int>(tmp_obj.at("port")));
+			listen.push_back(listen_config);
+		}
+		std::cout << "]" << std::endl;
+	}
+	it = config_obj.find("web_root");
+	if (it != config_obj.end())
+	{
+		web_root = boost::json::value_to<std::string>(it->value());
+	}
+	it = config_obj.find("tls_config");
+	if (it != config_obj.end())
+	{
+		boost::json::object tls_config_obj = boost::json::value_to<boost::json::object>(it->value());
+		auto it2 = tls_config_obj.find("tls_cert_file");
+		if (it2 != tls_config_obj.end())
+		{
+			tls_config.set_cert_file(boost::json::value_to<std::string>(it2->value()));
+		}
+		it2 = tls_config_obj.find("tls_key_file");
+		if (it2 != tls_config_obj.end())
+		{
+			tls_config.set_key_file(boost::json::value_to<std::string>(it2->value()));
+		}
+	}
 }
 
 void tag_invoke(boost::json::value_from_tag, boost::json::value &json_value, const HttpConfig &config)
