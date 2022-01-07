@@ -1,4 +1,4 @@
-# minorhttpd
+# lwhttpd
 ## 简述
 ### 此项目的由来
 作者在学习HTTP的过程中偶然了解到tinyhttpd项目<http://tinyhttpd.sourceforge.net/>，遗憾的是该项目已经超过20年没有更新。  
@@ -67,8 +67,8 @@ $ make -j8
 build$ tree
 |-- htdocs
 |   `-- demo.cgi
-`-- minorhttpd
-build$ sudo ./minorhttpd
+`-- lwhttpd
+build$ sudo ./lwhttpd
 ```
 ### 测试
 #### 1.CURL
