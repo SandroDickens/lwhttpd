@@ -1,5 +1,5 @@
-#ifndef TINYHTTPD_MIMETYPES_H
-#define TINYHTTPD_MIMETYPES_H
+#ifndef LWHTTPD_MIME_TYPES_H
+#define LWHTTPD_MIME_TYPES_H
 
 
 #include <unordered_map>
@@ -7,7 +7,7 @@
 class MIMETypes
 {
 public:
-	std::string getMIMEType(const std::string &fileName);
+	static std::string getMIMEType(const std::string &fileName);
 
 	static bool isELF(const std::string &fileName);
 
@@ -23,8 +23,8 @@ public:
 
 private:
 	MIMETypes();
-
+	static std::unordered_map<std::string, std::string> mimeMap;
 };
 
 
-#endif //TINYHTTPD_MIMETYPES_H
+#endif //LWHTTPD_MIME_TYPES_H

@@ -1,5 +1,5 @@
-#ifndef TINYHTTPD_HTTP_CONFIG_H
-#define TINYHTTPD_HTTP_CONFIG_H
+#ifndef LWHTTPD_CONFIG_H
+#define LWHTTPD_CONFIG_H
 
 
 #include <string>
@@ -16,7 +16,7 @@ struct sockaddr_generic
 	{
 		in_addr addr4;
 		in6_addr addr6;
-	} addr;
+	}addr;
 };
 
 class ListenConfig
@@ -74,7 +74,7 @@ public:
 
 	void set_tls_cfg(TLSConfig cfg);
 
-	void parser_json_value(const std::string& json_file);
+	void parser_json_value(const std::string &json_file);
 
 	static void print_http_config(const HttpConfig &config);
 
@@ -87,4 +87,4 @@ private:
 	TLSConfig tls_config;
 };
 
-#endif //TINYHTTPD_HTTP_CONFIG_H
+#endif //LWHTTPD_CONFIG_H

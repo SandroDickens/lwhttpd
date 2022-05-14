@@ -1,5 +1,5 @@
-#ifndef TINYHTTPD_UTILS_H
-#define TINYHTTPD_UTILS_H
+#ifndef LWHTTPD_UTILS_H
+#define LWHTTPD_UTILS_H
 
 /**
  * vscnprintf - Format a string and place it in a buffer
@@ -22,4 +22,4 @@ long scnprintf(char *buf, ssize_t size, const char *fmt, ...);
 
 unsigned long readline(int fd, char *buf, unsigned long size);
 
-#endif //TINYHTTPD_UTILS_H
+#endif //LWHTTPD_UTILS_H

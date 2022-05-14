@@ -2,9 +2,7 @@
 #include <string>
 
 
-constexpr int CGI_ENV_COUNT = 24;
-
-const std::string CGI_ENV[CGI_ENV_COUNT] = {
+const std::string CGI_ENV[] = {
 		"COMSPEC", "DOCUMENT_ROOT", "GATEWAY_INTERFACE",
 		"HTTP_ACCEPT", "HTTP_ACCEPT_ENCODING",
 		"HTTP_ACCEPT_LANGUAGE", "HTTP_CONNECTION",
@@ -25,7 +23,7 @@ int main()
 	http_body.append(
 			"<html>\r\n<head>\r\n<title>CGI Environment Variables</title>\r\n</head>\r\n<body>\r\n<table border = \"0\" cellspacing = \"2\">\r\n");
 
-	for (const auto &cgi_env : CGI_ENV)
+	for (const auto &cgi_env:CGI_ENV)
 	{
 		http_body.append("<tr><td>" + cgi_env + "</td><td>");
 

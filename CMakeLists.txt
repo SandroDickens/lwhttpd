@@ -37,7 +37,7 @@ else()
 	message(FATAL_ERROR "Unsupported OS")
 endif()
 
-add_executable(${PROJECT_NAME} main.cpp misce.cpp response.cpp config/http_config.cpp config/http_config.h mimetype/MIMETypes.cpp mimetype/MIMETypes.h)
+add_executable(${PROJECT_NAME} main.cpp utils/utils.cpp http/response.cpp config/http_config.cpp config/http_config.h http/mime_types.cpp http/mime_types.h)
 add_executable(demo.cgi cgi_demo.cpp)
 
 target_link_libraries(${PROJECT_NAME} pthread boost_json)

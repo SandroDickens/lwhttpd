@@ -2,17 +2,17 @@
   "server_name": "www.samchiang.com",
   "listen": [
 	{
-	  "address": "10.0.0.1",
+	  "address": "0.0.0.0",
 	  "port": 80
 	},
 	{
-	  "address": "10::1",
+	  "address": "::",
 	  "port": 80
 	}
   ],
   "web_root": "/home/web",
-  "tls_config": {
-	"tls_cert_file": "/cert/tls.cert",
-	"tls_key_file": "/cert/tls.key"
+  "tls": {
+	"cert_file": "/cert/tls.cert",
+	"key_file": "/cert/tls.key"
   }
 }

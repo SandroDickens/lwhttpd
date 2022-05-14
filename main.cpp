@@ -12,10 +12,10 @@
 #include <wait.h>
 #include <vector>
 #include <unordered_set>
-#include "misce.hpp"
-#include "response.hpp"
+#include "utils/utils.hpp"
+#include "http/response.hpp"
 #include "config/http_config.h"
-#include "mimetype/MIMETypes.h"
+#include "http/mime_types.h"
 
 
 void handle_error(const char *func_name, int line, int error_code, int fd, const char *msg);
@@ -55,14 +55,14 @@ void abort_loop(int sig)
 	(void)signal(sig, SIG_DFL);
 }
 
-HttpConfig httpConfig;
+HttpConfig http_config;
 
 int main()
 {
 	signal(SIGINT, abort_loop);
 	try
 	{
-		httpConfig.parser_json_value("../config.json");
+		http_config.parser_json_value("../config.json");
 	}
 	catch (std::exception &exc)
 	{
@@ -70,8 +70,8 @@ int main()
 		return -1;
 	}
 	int ipv4_fd = -1, ipv6_fd = -1;
-	auto var = httpConfig.get_listen_cfg();
-	for (auto cfg: var)
+	auto var = http_config.get_listen_cfg();
+	for (auto cfg:var)
 	{
 		auto gen_addr = cfg.get_address();
 		if ((ipv4_fd == -1) && (cfg.get_address().family == AF_INET))
@@ -119,6 +119,7 @@ int main()
 		{
 			std::cerr << e.what() << std::endl;
 			close(ipv4_fd);
+			ipv4_fd = -1;
 		}
 	}
 	if (ipv6_fd != -1)
@@ -131,6 +132,7 @@ int main()
 		{
 			std::cerr << e.what() << std::endl;
 			close(ipv6_fd);
+			ipv6_fd = -1;
 		}
 	}
 	if ((ipv4_event_data == nullptr) && (ipv6_event_data == nullptr))
@@ -490,7 +492,7 @@ long do_session(int fd)
 		}
 	}
 
-	std::string webpath = httpConfig.get_web_root();
+	std::string webpath = http_config.get_web_root();
 	webpath.append(url);
 	if (webpath[webpath.length() - 1] == '/')
 	{
@@ -661,7 +663,7 @@ long get_content(int fd, std::string &webpath)
 	{
 		std::string headers = make_headers();
 		MIMETypes &mimeTypes = MIMETypes::getInstance();
-		std::string contentType = mimeTypes.getMIMEType(webpath);
+		std::string contentType = MIMETypes::getMIMEType(webpath);
 		headers.append("Content-Type: " + contentType + "\r\n");
 
 		size_t begin_pos = ifs.tellg();
@@ -674,7 +676,7 @@ long get_content(int fd, std::string &webpath)
 		unsigned long read_size = 0;
 		while ((ifs.good()) && (read_size < sizeof(buffer)))
 		{
-			ifs.read(buffer + read_size, file_size - read_size);
+			ifs.read(buffer + read_size, std::streamsize(file_size - read_size));
 			read_size += ifs.gcount();
 		}
 		headers.append("Content-Length: " + std::to_string(read_size) + "\r\n\r\n");

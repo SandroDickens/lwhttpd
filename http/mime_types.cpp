@@ -2,9 +2,9 @@
 #include <string>
 #include <cstring>
 #include <iostream>
-#include "MIMETypes.h"
+#include "mime_types.h"
 
-static std::unordered_map<std::string, std::string> mimeMap{};
+std::unordered_map<std::string, std::string> MIMETypes::mimeMap;
 
 MIMETypes::MIMETypes()
 {
@@ -12,7 +12,7 @@ MIMETypes::MIMETypes()
 	std::string type = "text";
 	{
 		std::string plainType[] = {"txt", "ini", "conf", "log", "c", "cpp", "h", "hpp", "java", "php", "Makefile", "v"};
-		for (const std::string &tmp: plainType)
+		for (const std::string &tmp:plainType)
 		{
 			mimeMap.insert({tmp, type + "/" + "plain"});
 		}

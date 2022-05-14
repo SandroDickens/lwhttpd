@@ -1,5 +1,5 @@
-#ifndef TINYHTTPD_RESPONSE_HPP
-#define TINYHTTPD_RESPONSE_HPP
+#ifndef LWHTTPD_RESPONSE_H
+#define LWHTTPD_RESPONSE_H
 
 enum HTTP_STATUS_CODE
 {
@@ -38,4 +38,4 @@ long bad_gateway(int fd, const std::string &path);
 /* 503 Service unavailable */
 long service_unavailable(int fd, const std::string &path);
 
-#endif //TINYHTTPD_RESPONSE_HPP
+#endif //LWHTTPD_RESPONSE_H
