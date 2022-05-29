@@ -12,13 +12,15 @@
 #include <wait.h>
 #include <vector>
 #include <unordered_set>
+
+#include <boost/asio.hpp>
+
 #include "utils/utils.hpp"
 #include "http/response.hpp"
 #include "config/http_config.h"
 #include "http/mime_types.h"
+#include "logger/logger.h"
 
-
-void handle_error(const char *func_name, int line, int error_code, int fd, const char *msg);
 
 int init_ipv4(sockaddr_in addr);
 
@@ -55,14 +57,23 @@ void abort_loop(int sig)
 	(void)signal(sig, SIG_DFL);
 }
 
-HttpConfig http_config;
+httpd_cfg http_config;
+
+boost::asio::thread_pool *work_thread_pool;
+
+static logger *lwhttpd_logger;
+
+void init_logger(const std::string &log_file_name);
 
 int main()
 {
 	signal(SIGINT, abort_loop);
+
+	init_logger("/var/log/lwhttpd.log");
+
 	try
 	{
-		http_config.parser_json_value("../config.json");
+		http_config = httpd_cfg::parser_config("../config.json");
 	}
 	catch (std::exception &exc)
 	{
@@ -70,11 +81,11 @@ int main()
 		return -1;
 	}
 	int ipv4_fd = -1, ipv6_fd = -1;
-	auto var = http_config.get_listen_cfg();
-	for (auto cfg:var)
+	auto listen_vec = http_config.get_listen();
+	for (const auto &tmp_listen:listen_vec)
 	{
-		auto gen_addr = cfg.get_address();
-		if ((ipv4_fd == -1) && (cfg.get_address().family == AF_INET))
+		const sockaddr_generic gen_addr = tmp_listen.get_server_address();
+		if ((ipv4_fd == -1) && (gen_addr.family == AF_INET))
 		{
 			sockaddr_in addr{};
 			addr.sin_family = gen_addr.family;
@@ -140,6 +151,29 @@ int main()
 		close(epoll_fd);
 		return -1;
 	}
+
+	if (0 == http_config.get_work_thread())
+	{
+		work_thread_pool = new boost::asio::thread_pool();
+	}
+	else
+	{
+		work_thread_pool = new boost::asio::thread_pool(http_config.get_work_thread());
+	}
+
+	if (work_thread_pool == nullptr)
+	{
+		close(epoll_fd);
+		if (ipv4_fd != -1)
+		{
+			close(ipv4_fd);
+		}
+		if (ipv6_fd != -1)
+		{
+			close(ipv6_fd);
+		}
+	}
+
 	if (ipv4_event_data != nullptr)
 	{
 		ipv4_event_data->ep_fd = epoll_fd;
@@ -210,6 +244,7 @@ int main()
 	{
 		close(ipv6_fd);
 	}
+	work_thread_pool->join();
 
 	return 0;
 }
@@ -236,7 +271,11 @@ void accept_connect(epoll_event *event, std::unordered_set<event_data *> &data_s
 				char addr_str[INET_ADDRSTRLEN];
 				addr_str[0] = 0;
 				inet_ntop(client_addr.sin_family, &client_addr.sin_addr, addr_str, sizeof(addr_str));
-				std::cout << "new ipv4 connection: " << addr_str << "@" << ntohs(client_addr.sin_port) << std::endl;
+				char log_buff[LOG_LINE_MAX];
+				log_buff[0] = '\0';
+				scnprintf(log_buff, sizeof(log_buff), "new ipv4 connection: %s@%hu", addr_str,
+				          ntohs(client_addr.sin_port));
+				lwhttpd_logger->log_trace(log_buff);
 #endif
 			}
 		}
@@ -255,7 +294,11 @@ void accept_connect(epoll_event *event, std::unordered_set<event_data *> &data_s
 				char addr_str[INET6_ADDRSTRLEN];
 				addr_str[0] = 0;
 				inet_ntop(client_addr.sin6_family, &client_addr.sin6_addr, addr_str, sizeof(addr_str));
-				std::cout << "new ipv6 connection: " << addr_str << "@" << ntohs(client_addr.sin6_port) << std::endl;
+				char log_buff[LOG_LINE_MAX];
+				log_buff[0] = '\0';
+				scnprintf(log_buff, sizeof(log_buff), "new ipv6 connection: %s@%hu", addr_str,
+				          ntohs(client_addr.sin6_port));
+				lwhttpd_logger->log_trace(log_buff);
 #endif
 			}
 		}
@@ -320,7 +363,7 @@ void session_handler(epoll_event *event, std::unordered_set<event_data *> &data_
 	}
 	else if (events & EPOLLIN)
 	{
-		do_session(evt_data->sock_fd);
+		boost::asio::post(*work_thread_pool, [fd = evt_data->sock_fd] { return do_session(fd); });
 	}
 	else
 	{
@@ -336,10 +379,15 @@ void session_handler(epoll_event *event, std::unordered_set<event_data *> &data_
 
 int init_ipv4(const sockaddr_in source_addr)
 {
+	char log_buff[LOG_LINE_MAX];
+	log_buff[0] = '\0';
 	int fd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
 	if (fd == -1)
 	{
-		handle_error(__func__, __LINE__, errno, fd, "create ipv4 socket failed!");
+		auto _errno = errno;
+		scnprintf(log_buff, sizeof(log_buff), "create ipv4 socket failed! %s(%d)", strerror(_errno), _errno);
+		lwhttpd_logger->log_debug(log_buff);
+		handle_error(__func__, __LINE__, _errno, fd, "create ipv4 socket failed!");
 		return -1;
 	}
 
@@ -350,7 +398,10 @@ int init_ipv4(const sockaddr_in source_addr)
 	}
 	if (-1 == bind(fd, reinterpret_cast<const sockaddr *>(&source_addr), sizeof(source_addr)))
 	{
-		handle_error(__func__, __LINE__, errno, fd, "ipv4 bind port failed!");
+		auto _errno = errno;
+		scnprintf(log_buff, sizeof(log_buff), "ipv4 bind port failed! %s(%d)", strerror(_errno), _errno);
+		lwhttpd_logger->log_debug(log_buff);
+		handle_error(__func__, __LINE__, _errno, fd, "ipv4 bind port failed!");
 		return -1;
 	}
 
@@ -358,17 +409,21 @@ int init_ipv4(const sockaddr_in source_addr)
 	socklen_t name_len = sizeof(tmp_addr);
 	if (-1 == getsockname(fd, reinterpret_cast<sockaddr *>(&tmp_addr), &name_len))
 	{
-		handle_error(__func__, __LINE__, errno, fd, "ipv4 getsockname failed!");
+		auto _errno = errno;
+		scnprintf(log_buff, sizeof(log_buff), "ipv4 getsockname failed! %s(%d)", strerror(_errno), _errno);
+		lwhttpd_logger->log_debug(log_buff);
+		handle_error(__func__, __LINE__, _errno, fd, "ipv4 getsockname failed!");
 		return -1;
 	}
-	else
-	{
-		std::cout << "ipv4 bind port " << ntohs(tmp_addr.sin_port) << std::endl;
-	}
+	scnprintf(log_buff, sizeof(log_buff), "ipv4 bind port %hu", ntohs(tmp_addr.sin_port));
+	lwhttpd_logger->log_debug(log_buff);
 
 	if (-1 == listen(fd, 5))
 	{
-		handle_error(__func__, __LINE__, errno, fd, "ipv4 listen error!");
+		auto _errno = errno;
+		scnprintf(log_buff, sizeof(log_buff), "ipv4 listen error! %s(%d)", strerror(_errno), _errno);
+		lwhttpd_logger->log_debug(log_buff);
+		handle_error(__func__, __LINE__, _errno, fd, "ipv4 listen error!");
 		return -1;
 	}
 
@@ -420,16 +475,6 @@ int init_ipv6(const sockaddr_in6 source_addr)
 	}
 
 	return fd;
-}
-
-void handle_error(const char *func_name, int line, int error_code, int fd, const char *msg)
-{
-	if (fd != -1)
-	{
-		close(fd);
-	}
-	std::cerr << func_name << "@" << line << ": " << msg << strerror(error_code) << "(" << error_code << ")"
-	          << std::endl;
 }
 
 long do_session(int fd)
@@ -499,7 +544,11 @@ long do_session(int fd)
 		webpath.append("index.html");
 	}
 #ifdef _DEBUG
-	std::cout << "method: " << method << ", webpath: " << webpath << ", args: " << query_string << std::endl;
+	char log_buff[LOG_LINE_MAX];
+	log_buff[0] = '\0';
+	scnprintf(log_buff, sizeof(log_buff), "method: %s, webpath: %s, args: %s", method, webpath.c_str(),
+	          query_string.c_str());
+	lwhttpd_logger->log_trace(log_buff);
 #endif
 	struct stat64 webroot_stat{};
 	if (-1 == stat64(webpath.c_str(), &webroot_stat))
@@ -689,4 +738,15 @@ long get_content(int fd, std::string &webpath)
 	{
 		return not_found(fd, webpath);
 	}
+}
+
+void init_logger(const std::string &log_file_name)
+{
+#ifdef _DEBUG
+	log_level level = log_level::TRACE;
+#else
+	log_level level = log_level::WARN;
+#endif
+	lwhttpd_logger = new logger(log_file_name, level);
+	lwhttpd_logger->set_log_prefix("lwhttpd");
 }

@@ -17,74 +17,86 @@ struct sockaddr_generic
 		in_addr addr4;
 		in6_addr addr6;
 	}addr;
+
+	friend void tag_invoke(boost::json::value_from_tag, boost::json::value &json_value, sockaddr_generic const &config);
+
+	friend sockaddr_generic
+	tag_invoke(boost::json::value_to_tag<sockaddr_generic>, boost::json::value const &json_value);
 };
 
-class ListenConfig
+class listen_cfg
 {
 public:
-	[[nodiscard]] sockaddr_generic get_address() const;
+	void set_server_address(const sockaddr_generic &addr_vec);
 
-	void set_address(const std::string &addr);
+	[[nodiscard]] sockaddr_generic get_server_address() const;
 
-	[[nodiscard]] unsigned short get_port() const;
+	friend void tag_invoke(boost::json::value_from_tag, boost::json::value &json_value, listen_cfg const &config);
 
-	void set_port(unsigned short port);
-
-	friend void tag_invoke(boost::json::value_from_tag, boost::json::value &json_value, ListenConfig const &config);
+	friend listen_cfg tag_invoke(boost::json::value_to_tag<listen_cfg>, boost::json::value const &json_value);
 
 private:
-	sockaddr_generic _address;
+	sockaddr_generic server_address;
 };
 
 
-class TLSConfig
+class tls_cfg
 {
 public:
-	[[nodiscard]] std::string get_cert_file() const;
+	void set_cert(std::string cert);
 
-	void set_cert_file(std::string file_name);
+	[[nodiscard]] std::string get_cert() const;
 
-	[[nodiscard]] std::string get_key_file() const;
+	void set_key(std::string key);
 
-	void set_key_file(std::string file_name);
+	[[nodiscard]] std::string get_key() const;
 
-	friend void tag_invoke(boost::json::value_from_tag, boost::json::value &json_value, TLSConfig const &config);
+	friend void tag_invoke(boost::json::value_from_tag, boost::json::value &json_value, tls_cfg const &config);
+
+	friend tls_cfg tag_invoke(boost::json::value_to_tag<tls_cfg>, boost::json::value const &json_value);
 
 private:
-	std::string tls_cert_file{};
-	std::string tls_key_file{};
+	std::string cert_file{};
+	std::string key_file{};
 };
 
-class HttpConfig
+class httpd_cfg
 {
 public:
-	std::string get_server_name();
+	static httpd_cfg parser_config(const std::string &json_file);
 
-	void set_server_name(std::string name);
+	void set_server_name(std::string &name);
 
-	std::vector<ListenConfig> get_listen_cfg();
+	[[nodiscard]] std::string get_server_name() const;
 
-	void set_listen_cfg(std::vector<ListenConfig> cfg);
+	void set_web_root(std::string &root);
 
-	std::string get_web_root();
+	[[nodiscard]] std::string get_web_root() const;
 
-	void set_web_root(std::string root);
+	void set_work_thread(unsigned long count);
 
-	TLSConfig get_tls_cfg();
+	[[nodiscard]] unsigned long get_work_thread() const;
 
-	void set_tls_cfg(TLSConfig cfg);
+	void add_listen(const listen_cfg &cfg);
 
-	void parser_json_value(const std::string &json_file);
+	void clear_listen();
 
-	static void print_http_config(const HttpConfig &config);
+	[[nodiscard]] std::vector<listen_cfg> get_listen() const;
 
-	friend void tag_invoke(boost::json::value_from_tag, boost::json::value &json_value, HttpConfig const &config);
+	void set_tls_cfg(const tls_cfg &cfg);
+
+	[[nodiscard]] tls_cfg get_tls_cfg() const;
+
+	friend void tag_invoke(boost::json::value_from_tag, boost::json::value &json_value, httpd_cfg const &config);
+
+	friend httpd_cfg tag_invoke(boost::json::value_to_tag<httpd_cfg>, boost::json::value const &json_value);
 
 private:
 	std::string server_name{};
-	std::vector<ListenConfig> listen{};
 	std::string web_root{};
-	TLSConfig tls_config;
+	tls_cfg tls_config;
+	unsigned long work_thread;
+	std::vector<listen_cfg> listen{};
 };
 
 #endif //LWHTTPD_CONFIG_H

@@ -22,4 +22,6 @@ long scnprintf(char *buf, ssize_t size, const char *fmt, ...);
 
 unsigned long readline(int fd, char *buf, unsigned long size);
 
+void handle_error(const char *func_name, int line, int error_code, int fd, const char *msg);
+
 #endif //LWHTTPD_UTILS_H

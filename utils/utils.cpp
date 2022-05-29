@@ -1,6 +1,8 @@
 #include <cstdarg>
 #include <cstdio>
+#include <unistd.h>
 #include <sys/socket.h>
+#include <cstring>
 
 long vscnprintf(char *buf, ssize_t size, const char *fmt, va_list args)
 {
@@ -51,4 +53,13 @@ unsigned long readline(int fd, char *buf, unsigned long size)
 	}
 	buf[read_size] = '\0';
 	return read_size;
+}
+
+void handle_error(const char *func_name, int line, int error_code, int fd, const char *msg)
+{
+	if (fd != -1)
+	{
+		close(fd);
+	}
+	printf("%s@%d: %s, %s(%d)", func_name, line, msg, strerror(error_code), error_code);
 }
