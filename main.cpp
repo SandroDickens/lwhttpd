@@ -82,7 +82,7 @@ int main()
 	}
 	int ipv4_fd = -1, ipv6_fd = -1;
 	auto listen_vec = http_config.get_listen();
-	for (const auto &tmp_listen:listen_vec)
+	for (const auto &tmp_listen: listen_vec)
 	{
 		const sockaddr_generic gen_addr = tmp_listen.get_server_address();
 		if ((ipv4_fd == -1) && (gen_addr.family == AF_INET))
@@ -252,7 +252,7 @@ int main()
 void accept_connect(epoll_event *event, std::unordered_set<event_data *> &data_set)
 {
 	event_data *evt_data = static_cast<event_data *>(event->data.ptr);
-	if (event->events & EPOLLIN)
+	if (event->events&EPOLLIN)
 	{
 		int fd = evt_data->sock_fd;
 		int client_fd;
@@ -308,7 +308,7 @@ void accept_connect(epoll_event *event, std::unordered_set<event_data *> &data_s
 		new_evt_data->family = evt_data->family;
 		new_evt_data->callback = session_handler;
 		epoll_event ep_event{};
-		ep_event.events = EPOLLIN | EPOLLRDHUP | EPOLLHUP | EPOLLET;
+		ep_event.events = EPOLLIN|EPOLLRDHUP|EPOLLHUP|EPOLLET;
 		ep_event.data.ptr = new_evt_data;
 		if (-1 == epoll_ctl(evt_data->ep_fd, EPOLL_CTL_ADD, client_fd, &ep_event))
 		{
@@ -343,7 +343,7 @@ void session_handler(epoll_event *event, std::unordered_set<event_data *> &data_
 {
 	event_data *evt_data = static_cast<event_data *>(event->data.ptr);
 	uint32_t events = event->events;
-	if (events & (EPOLLHUP | EPOLLRDHUP))
+	if (events&(EPOLLHUP|EPOLLRDHUP))
 	{
 		if (-1 == epoll_ctl(evt_data->ep_fd, EPOLL_CTL_DEL, evt_data->sock_fd, nullptr))
 		{
@@ -357,13 +357,14 @@ void session_handler(epoll_event *event, std::unordered_set<event_data *> &data_
 			delete evt_data;
 		}
 	}
-	else if (events & EPOLLERR)
+	else if (events&EPOLLERR)
 	{
 		handle_error(__func__, __LINE__, errno, -1, "epoll has an error!");
 	}
-	else if (events & EPOLLIN)
+	else if (events&EPOLLIN)
 	{
-		boost::asio::post(*work_thread_pool, [fd = evt_data->sock_fd] { return do_session(fd); });
+		boost::asio::post(*work_thread_pool, [fd = evt_data->sock_fd]
+		{ return do_session(fd); });
 	}
 	else
 	{
@@ -392,8 +393,11 @@ int init_ipv4(const sockaddr_in source_addr)
 	}
 
 	int reuse_addr_opt = 1;
-	if (-1 == setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &reuse_addr_opt, sizeof(int)))
+	if (-1 == setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &reuse_addr_opt, sizeof(reuse_addr_opt)))
 	{
+		auto _errno = errno;
+		scnprintf(log_buff, sizeof(log_buff), "ipv4 setsockopt error! %s(%d)", strerror(_errno), _errno);
+		lwhttpd_logger->log_debug(log_buff);
 		handle_error(__func__, __LINE__, errno, fd, "ipv4 setsockopt error!");
 	}
 	if (-1 == bind(fd, reinterpret_cast<const sockaddr *>(&source_addr), sizeof(source_addr)))
@@ -432,9 +436,14 @@ int init_ipv4(const sockaddr_in source_addr)
 
 int init_ipv6(const sockaddr_in6 source_addr)
 {
+	char log_buff[LOG_LINE_MAX];
+	log_buff[0] = '\0';
 	int fd = socket(AF_INET6, SOCK_STREAM, IPPROTO_TCP);
 	if (fd == -1)
 	{
+		auto _errno = errno;
+		scnprintf(log_buff, sizeof(log_buff), "create ipv6 socket failed! %s(%d)", strerror(_errno), _errno);
+		lwhttpd_logger->log_debug(log_buff);
 		handle_error(__func__, __LINE__, errno, fd, "create ipv6 socket failed!");
 		return -1;
 	}
@@ -442,16 +451,25 @@ int init_ipv6(const sockaddr_in6 source_addr)
 	int reuse_addr_opt = 1;
 	if (-1 == setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &reuse_addr_opt, sizeof(reuse_addr_opt)))
 	{
-		handle_error(__func__, __LINE__, errno, fd, "ipv6 set listenAddr reuse error!");
+		auto _errno = errno;
+		scnprintf(log_buff, sizeof(log_buff), "ipv6 set listen address reuse error! %s(%d)", strerror(_errno), _errno);
+		lwhttpd_logger->log_debug(log_buff);
+		handle_error(__func__, __LINE__, errno, fd, "ipv6 set listen address reuse error!");
 	}
 	int ipv6_only_opt = 1;
 	if (-1 == setsockopt(fd, IPPROTO_IPV6, IPV6_V6ONLY, &ipv6_only_opt, sizeof(ipv6_only_opt)))
 	{
-		handle_error(__func__, __LINE__, errno, fd, "ipv6 setsockopt error!");
+		auto _errno = errno;
+		scnprintf(log_buff, sizeof(log_buff), "ipv6 setsockopt ipv6 only failed! %s(%d)", strerror(_errno), _errno);
+		lwhttpd_logger->log_debug(log_buff);
+		handle_error(__func__, __LINE__, errno, fd, "ipv6 setsockopt ipv6 only failed!");
 	}
 
 	if (-1 == bind(fd, reinterpret_cast<const sockaddr *>(&source_addr), sizeof(source_addr)))
 	{
+		auto _errno = errno;
+		scnprintf(log_buff, sizeof(log_buff), "ipv6 bind port failed! %s(%d)", strerror(_errno), _errno);
+		lwhttpd_logger->log_debug(log_buff);
 		handle_error(__func__, __LINE__, errno, fd, "ipv6 bind port failed!");
 		return -1;
 	}
@@ -460,16 +478,20 @@ int init_ipv6(const sockaddr_in6 source_addr)
 	socklen_t name_len = sizeof(tmp_addr);
 	if (-1 == getsockname(fd, reinterpret_cast<sockaddr *>(&tmp_addr), &name_len))
 	{
+		auto _errno = errno;
+		scnprintf(log_buff, sizeof(log_buff), "ipv6 getsockname failed! %s(%d)", strerror(_errno), _errno);
+		lwhttpd_logger->log_debug(log_buff);
 		handle_error(__func__, __LINE__, errno, fd, "ipv6 getsockname failed!");
 		return -1;
 	}
-	else
-	{
-		std::cout << "ipv6 bind port " << ntohs(tmp_addr.sin6_port) << std::endl;
-	}
+	scnprintf(log_buff, sizeof(log_buff), "ipv6 bind port %hu", ntohs(tmp_addr.sin6_port));
+	lwhttpd_logger->log_debug(log_buff);
 
 	if (-1 == listen(fd, 5))
 	{
+		auto _errno = errno;
+		scnprintf(log_buff, sizeof(log_buff), "ipv6 listen error! %s(%d)", strerror(_errno), _errno);
+		lwhttpd_logger->log_debug(log_buff);
 		handle_error(__func__, __LINE__, errno, fd, "ipv6 listen error!");
 		return -1;
 	}
@@ -561,11 +583,11 @@ long do_session(int fd)
 	}
 	else
 	{
-		if ((webroot_stat.st_mode & S_IFMT) == S_IFDIR)
+		if ((webroot_stat.st_mode&S_IFMT) == S_IFDIR)
 		{
 			webpath.append("/index.html");
 		}
-		if ((MIMETypes::isELF(webpath)) && (webroot_stat.st_mode & (S_IXGRP | S_IXUSR | S_IXOTH)))
+		if ((MIMETypes::isELF(webpath)) && (webroot_stat.st_mode&(S_IXGRP|S_IXUSR|S_IXOTH)))
 		{
 			is_cgi = true;
 		}
@@ -601,7 +623,8 @@ long exec_cgi(int fd, const std::string &webpath, const char *method, const std:
 		do
 		{
 			numchars = readline(fd, buffer, sizeof(buffer));
-		} while ((numchars > 0) && (0 != strcmp("\n", buffer)));
+		}
+		while ((numchars > 0) && (0 != strcmp("\n", buffer)));
 	}
 	else
 	{
@@ -614,7 +637,8 @@ long exec_cgi(int fd, const std::string &webpath, const char *method, const std:
 			{
 				content_len = strtoul(buffer, nullptr, 10);
 			}
-		} while ((numchars > 0) && (0 != strcmp("\n", buffer)));
+		}
+		while ((numchars > 0) && (0 != strcmp("\n", buffer)));
 		if (content_len == 0)
 		{
 			return bad_request(fd, webpath);
@@ -676,7 +700,8 @@ long exec_cgi(int fd, const std::string &webpath, const char *method, const std:
 				{
 					break;
 				}
-			} while (read_size < content_len);
+			}
+			while (read_size < content_len);
 			write(pipe_p2cgi[1], buffer, read_size);
 		}
 		read_size = 0;
@@ -688,7 +713,8 @@ long exec_cgi(int fd, const std::string &webpath, const char *method, const std:
 			{
 				read_size += var;
 			}
-		} while (var > 0);
+		}
+		while (var > 0);
 		std::string header = make_headers();
 		send(fd, header.c_str(), header.length(), 0);
 		send(fd, buffer, read_size, 0);
@@ -707,7 +733,7 @@ long exec_cgi(int fd, const std::string &webpath, const char *method, const std:
 long get_content(int fd, std::string &webpath)
 {
 	std::ifstream ifs;
-	ifs.open(webpath, std::ios::in | std::ios::binary);
+	ifs.open(webpath, std::ios::in|std::ios::binary);
 	if (ifs.is_open())
 	{
 		std::string headers = make_headers();

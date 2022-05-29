@@ -6,6 +6,32 @@
 
 #include "logger.h"
 
+static std::string to_string(log_level level)
+{
+	std::string str;
+	switch (level)
+	{
+		case log_level::FATAL:
+			str = "FATAL";
+			break;
+		case log_level::ERROR:
+			str = "ERROR";
+			break;
+		case log_level::WARN:
+			str = "WARN";
+			break;
+		case log_level::INFO:
+			str = "INFO";
+			break;
+		case log_level::DEBUG:
+			str = "DEBUG";
+			break;
+		case log_level::TRACE:
+			str = "TRACE";
+			break;
+	}
+	return str;
+}
 
 logger::logger(log_level lv)
 {
@@ -17,8 +43,8 @@ logger::logger(log_level lv)
 logger::logger(const std::string &log_file, log_level lv)
 {
 	this->level = lv;
-	mode_t mode = S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH;
-	int fd = open(log_file.c_str(), O_RDWR | O_APPEND | O_CLOEXEC | O_CREAT, mode);
+	mode_t mode = S_IRUSR|S_IWUSR|S_IRGRP|S_IWGRP|S_IROTH;
+	int fd = open(log_file.c_str(), O_RDWR|O_APPEND|O_CLOEXEC|O_CREAT, mode);
 	if (fd != -1)
 	{
 		this->log_fd = fd;
@@ -60,6 +86,7 @@ void logger::log(log_level lv, const std::string &log_str)
 		snprintf(time_str, sizeof(time_str), "%d/%d/%d %02d:%02d:%02d %s, ", 1900 + tm_now->tm_year, tm_now->tm_mon + 1,
 		         tm_now->tm_mday, tm_now->tm_hour, tm_now->tm_min, tm_now->tm_sec, tm_now->tm_zone);
 		log_content += time_str;
+		log_content += "[" + to_string(lv) + "], ";
 		if (!this->log_prefix.empty())
 		{
 			log_content += '[' + this->log_prefix + "] ";

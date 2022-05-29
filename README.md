@@ -43,21 +43,22 @@ $ make -j8
 (注意: TLS还未支持)
 ```json
 {
-  "serverName": "localhost",
+  "server_name": "www.mydomain.com",
   "listen": [
 	{
 	  "address": "0.0.0.0",
-	  "port": 80
+	  "port": 8086
 	},
 	{
 	  "address": "::",
-	  "port": 80
+	  "port": 8086
 	}
   ],
-  "webRoot": "/var/htdocs",
-  "tlsConfig": {
-	"tlsCertFile": "/cert/tls.cert",
-	"tlsKeyFile": "/cert/tls.key"
+  "web_root": "/var/htdocs",
+  "work_thread": 0,
+  "tls": {
+	"cert_file": "/cert/tls.cert",
+	"key_file": "/cert/tls.key"
   }
 }
 ```

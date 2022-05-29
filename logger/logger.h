@@ -15,6 +15,8 @@ enum class log_level
 	TRACE = 5
 };
 
+
+
 class logger
 {
 public:
