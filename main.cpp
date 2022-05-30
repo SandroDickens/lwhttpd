@@ -606,7 +606,7 @@ std::string make_headers()
 {
 	std::string headers;
 	headers.append("HTTP/1.0 200 OK\r\n");
-	headers.append("Server: minorhttpd/0.0.1\r\n");
+	headers.append("Server: lwhttpd/0.0.1\r\n");
 	return headers;
 }
 
