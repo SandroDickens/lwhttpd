@@ -35,9 +35,7 @@ $ make -j8
 已支持通过JSON配置
 ```json
 {
-  //域名
   "server_name": "www.mydomain.com",
-  //监听地址和端口
   "listen": [
 	{
 	  "address": "0.0.0.0",
@@ -48,11 +46,8 @@ $ make -j8
 	  "port": 80
 	}
   ],
-  //根目录
   "web_root": "/var/htdocs",
-  //工作线程池的线程数量, 0默认为CPU可用线程数的2倍
   "work_thread": 0,
-  //TLS证书和key
   "tls": {
 	"cert_file": "/cert/tls.cert",
 	"key_file": "/cert/tls.key"
