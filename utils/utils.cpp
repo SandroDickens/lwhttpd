@@ -4,22 +4,20 @@
 #include <sys/socket.h>
 #include <cstring>
 
-long vscnprintf(char *buf, ssize_t size, const char *fmt, va_list args)
+size_t vscnprintf(char *__restrict buf, size_t size, const char *__restrict fmt, va_list args)
 {
 	int i = vsnprintf(buf, size, fmt, args);
-	ssize_t ssize = size;
-	return (i >= ssize)?(ssize - 1):i;
+	return (static_cast<size_t>(i) >= size) ? (size - 1) : i;
 }
 
-long scnprintf(char *buf, ssize_t size, const char *fmt, ...)
+size_t scnprintf(char *__restrict buf, size_t size, const char *__restrict fmt, ...)
 {
-	ssize_t ssize = size;
 	va_list args;
 	int i;
 	va_start(args, fmt);
 	i = vsnprintf(buf, size, fmt, args);
 	va_end(args);
-	return (i >= ssize)?(ssize - 1):i;
+	return (static_cast<size_t>(i) >= size) ? (size - 1) : i;
 }
 
 unsigned long readline(int fd, char *buf, unsigned long size)

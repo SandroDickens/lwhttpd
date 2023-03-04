@@ -19,7 +19,7 @@
 #include "http/response.hpp"
 #include "config/http_config.h"
 #include "http/mime_types.h"
-#include "logger/logger.h"
+#include "log4cpp.hpp"
 
 
 int init_ipv4(sockaddr_in addr);
@@ -271,11 +271,7 @@ void accept_connect(epoll_event *event, std::unordered_set<event_data *> &data_s
 				char addr_str[INET_ADDRSTRLEN];
 				addr_str[0] = 0;
 				inet_ntop(client_addr.sin_family, &client_addr.sin_addr, addr_str, sizeof(addr_str));
-				char log_buff[LOG_LINE_MAX];
-				log_buff[0] = '\0';
-				scnprintf(log_buff, sizeof(log_buff), "new ipv4 connection: %s@%hu", addr_str,
-				          ntohs(client_addr.sin_port));
-				lwhttpd_logger->log_trace(log_buff);
+				lwhttpd_logger->log_trace("new ipv4 connection: %s@%hu", addr_str, ntohs(client_addr.sin_port));
 #endif
 			}
 		}
@@ -294,11 +290,7 @@ void accept_connect(epoll_event *event, std::unordered_set<event_data *> &data_s
 				char addr_str[INET6_ADDRSTRLEN];
 				addr_str[0] = 0;
 				inet_ntop(client_addr.sin6_family, &client_addr.sin6_addr, addr_str, sizeof(addr_str));
-				char log_buff[LOG_LINE_MAX];
-				log_buff[0] = '\0';
-				scnprintf(log_buff, sizeof(log_buff), "new ipv6 connection: %s@%hu", addr_str,
-				          ntohs(client_addr.sin6_port));
-				lwhttpd_logger->log_trace(log_buff);
+				lwhttpd_logger->log_trace("new ipv6 connection: %s@%hu", addr_str, ntohs(client_addr.sin6_port));
 #endif
 			}
 		}
@@ -312,7 +304,9 @@ void accept_connect(epoll_event *event, std::unordered_set<event_data *> &data_s
 		ep_event.data.ptr = new_evt_data;
 		if (-1 == epoll_ctl(evt_data->ep_fd, EPOLL_CTL_ADD, client_fd, &ep_event))
 		{
-			handle_error(__func__, __LINE__, errno, client_fd, "add new accepted socket fd to epoll failed!");
+			auto t_errno = errno;
+			handle_error(__func__, __LINE__, t_errno, client_fd, "add new accepted socket fd to epoll failed!");
+			lwhttpd_logger->log_error("add new accepted socket fd to epoll failed! %s(%d)", strerror(t_errno), t_errno);
 			delete new_evt_data;
 		}
 		else
@@ -326,16 +320,20 @@ void accept_connect(epoll_event *event, std::unordered_set<event_data *> &data_s
 		socklen_t errlen = sizeof(error);
 		if (getsockopt(evt_data->sock_fd, SOL_SOCKET, SO_ERROR, &error, &errlen) == 0)
 		{
-			printf("error = %s\n", strerror(error));
+			auto t_errno = errno;
+			printf("error = %s\n", strerror(t_errno));
+			lwhttpd_logger->log_error("getsockopt error! %s(%d)", strerror(t_errno), t_errno);
 		}
 		sockaddr_in client_addr{};
 		socklen_t client_name_len = sizeof(client_addr);
 		int client_fd = accept(evt_data->sock_fd, reinterpret_cast<sockaddr *>(&client_addr), &client_name_len);
 		if (client_fd == -1)
 		{
-			handle_error(__func__, __LINE__, errno, client_fd, "accept client connect error!");
+			auto t_errno = errno;
+			handle_error(__func__, __LINE__, t_errno, client_fd, "accept client connect error!");
+			lwhttpd_logger->log_error("accept client connect error! %s(%d)", strerror(t_errno), t_errno);
 		}
-		std::cerr << "Unrecognized epoll event 0x" << std::hex << event->events << std::endl;
+		lwhttpd_logger->log_warn("Unrecognized epoll event 0x%x", event->events);
 	}
 }
 

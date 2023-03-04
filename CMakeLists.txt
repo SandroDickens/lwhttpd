@@ -1,8 +1,7 @@
-cmake_minimum_required(VERSION 3.0)
+cmake_minimum_required(VERSION 3.11)
 project(lwhttpd)
 
-set(CMAKE_C_STANDARD 20)
-set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/CMake;${CMAKE_MODULE_PATH}")
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wold-style-cast -Wextra -Wshadow -Wpointer-arith -Wwrite-strings \
 	-Woverloaded-virtual \
@@ -25,13 +24,20 @@ else ()
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O2")
 endif ()
 
-
 if (NOT (CMAKE_HOST_UNIX))
     message(FATAL_ERROR "Unsupported OS")
 endif ()
 
-add_executable(${PROJECT_NAME} main.cpp utils/utils.cpp http/response.cpp logger/logger.cpp config/http_config.cpp http/mime_types.cpp)
+add_executable(${PROJECT_NAME} main.cpp utils/utils.cpp http/response.cpp config/http_config.cpp http/mime_types.cpp)
 add_executable(demo.cgi cgi_demo.cpp)
+
+include(FetchContent)
+FetchContent_Declare(log4cpp GIT_REPOSITORY https://github.com/YukPingFong/log4cpp.git GIT_TAG origin/main)
+FetchContent_MakeAvailable(log4cpp)
+include_directories(${log4cpp_SOURCE_DIR}/src)
+target_link_libraries(${PROJECT_NAME} log4cpp)
+message(STATUS "binary dir: ${log4cpp_BINARY_DIR}")
+message(STATUS "source dir: ${log4cpp_SOURCE_DIR}")
 
 set(THREADS_PREFER_PTHREAD_FLAG ON)
 find_package(Threads REQUIRED)
@@ -57,3 +63,21 @@ if (Boost_FOUND)
     target_link_libraries(${PROJECT_NAME} ${Boost_LIBRARIES})
 endif ()
 
+set(LIBRESSL_ROOT_DIR "/usr/local/libressl")
+find_package(LibreSSL REQUIRED)
+if (LIBRESSL_FOUND)
+    message(STATUS "libressl version: ${LIBRESSL_VERSION}")
+    message(STATUS "libressl include dir: ${LIBRESSL_INCLUDE_DIR}")
+    message(STATUS "libressl libraries: ${LIBRESSL_LIBRARIES}")
+    message(STATUS "libressl crypto library: ${LIBRESSL_CRYPTO_LIBRARY}")
+    message(STATUS "libressl ssl library: ${LIBRESSL_SSL_LIBRARY}")
+    message(STATUS "libressl tls library: ${LIBRESSL_TLS_LIBRARY}")
+    include_directories(${LIBRESSL_INCLUDE_DIR})
+    link_directories(${LIBRESSL_ROOT_DIR}/lib)
+    target_link_libraries(${PROJECT_NAME} ${LIBRESSL_TLS_LIBRARY})
+endif ()
+
+get_property(dirs DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY INCLUDE_DIRECTORIES)
+foreach (dir ${dirs})
+    message(STATUS "include directory='${dir}'")
+endforeach ()
