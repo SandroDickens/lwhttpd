@@ -1,6 +1,6 @@
 # lwhttpd
 ## 简述
-<img src="https://www.lwhttpd.org/assets/lwhttpd.png" alt="LWHTTPD">\
+<img src="https://www.lwhttpd.org/assets/images/lwhttpd.png" alt="LWHTTPD">\
 lwhttpd(全称lightweight httpd)是一个轻量级和高性能的web服务器. 支持CGI, FastCGI(计划中), proxy (计划中)和静态资源访问\
 本项目主页<https://www.lwhttpd.org>
 ### 特点
