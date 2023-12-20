@@ -32,7 +32,7 @@ add_executable(${PROJECT_NAME} main.cpp utils/utils.cpp http/response.cpp config
 add_executable(demo.cgi cgi_demo.cpp)
 
 include(FetchContent)
-FetchContent_Declare(log4cpp GIT_REPOSITORY https://github.com/YukPingFong/log4cpp.git GIT_TAG origin/main)
+FetchContent_Declare(log4cpp GIT_REPOSITORY https://github.com/SandroDickens/log4cpp.git GIT_TAG origin/main)
 FetchContent_MakeAvailable(log4cpp)
 include_directories(${log4cpp_SOURCE_DIR}/src)
 target_link_libraries(${PROJECT_NAME} log4cpp)
